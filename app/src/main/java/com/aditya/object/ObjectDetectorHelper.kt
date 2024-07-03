@@ -22,8 +22,6 @@ class ObjectDetectorHelper(
     val objectDetectorListener: DetectorListener?
 ) {
 
-    // For this example this needs to be a var so it can be reset on changes. If the ObjectDetector
-    // will not change, a lazy val would be preferable.
     private var objectDetector: ObjectDetector? = null
 
     init {
@@ -34,11 +32,7 @@ class ObjectDetectorHelper(
         objectDetector = null
     }
 
-    // Initialize the object detector using current settings on the
-    // thread that is using it. CPU and NNAPI delegates can be used with detectors
-    // that are created on the main thread and used on a background thread, but
-    // the GPU delegate needs to be used on the thread that initialized the detector
-    fun setupObjectDetector() {
+    private fun setupObjectDetector() {
         // Create the base options for the detector using specifies max results and score threshold
         val optionsBuilder =
             ObjectDetector.ObjectDetectorOptions.builder()
@@ -50,15 +44,15 @@ class ObjectDetectorHelper(
 
         // Use the specified hardware for running the model. Default to CPU
         when (currentDelegate) {
-            DELEGATE_CPU -> {
-                // Default
-            }
             DELEGATE_GPU -> {
                 if (CompatibilityList().isDelegateSupportedOnThisDevice) {
                     baseOptionsBuilder.useGpu()
                 } else {
                     objectDetectorListener?.onError("GPU is not supported on this device")
                 }
+            }
+            DELEGATE_CPU -> {
+                // Default
             }
             DELEGATE_NNAPI -> {
                 baseOptionsBuilder.useNnapi()
@@ -69,11 +63,11 @@ class ObjectDetectorHelper(
 
         val modelName =
             when (currentModel) {
-                MODEL_MOBILENETV1 -> "mobilenetv1.tflite"
                 MODEL_EFFICIENTDETV0 -> "efficientdet-lite0.tflite"
+                MODEL_MOBILENETV1 -> "mobilenetv1.tflite"
                 MODEL_EFFICIENTDETV1 -> "efficientdet-lite1.tflite"
                 MODEL_EFFICIENTDETV2 -> "efficientdet-lite2.tflite"
-                else -> "mobilenetv1.tflite"
+                else -> "efficientdet-lite0.tflite"
             }
 
         try {
@@ -92,13 +86,8 @@ class ObjectDetectorHelper(
             setupObjectDetector()
         }
 
-        // Inference time is the difference between the system time at the start and finish of the
-        // process
         var inferenceTime = SystemClock.uptimeMillis()
 
-        // Create preprocessor for the image.
-        // See https://www.tensorflow.org/lite/inference_with_metadata/
-        //            lite_support#imageprocessor_architecture
         val imageProcessor =
             ImageProcessor.Builder()
                 .add(Rot90Op(-imageRotation / 90))

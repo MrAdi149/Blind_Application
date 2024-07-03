@@ -48,7 +48,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private var camera: Camera? = null
     private lateinit var textToSpeech: TextToSpeech
     private var cameraProvider: ProcessCameraProvider? = null
-    private var previousDetectionData: DetectionData? = null
 
     /** Blocking camera operations are performed using this executor */
     private lateinit var cameraExecutor: ExecutorService
@@ -57,8 +56,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     override fun onResume() {
         super.onResume()
-        // Make sure that all permissions are still present, since the
-        // user could have removed them while the app was in paused state.
+
         if (!PermissionFragment.hasPermissions(requireContext())) {
             Navigation.findNavController(requireActivity(), R.id.fragment_container)
                 .navigate(CameraFragmentDirections.actionCameraToPermissions())
@@ -154,8 +152,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             }
         }
 
-        // When clicked, change the underlying hardware used for inference. Current options are CPU
-        // GPU, and NNAPI
         fragmentCameraBinding.bottomSheetLayout.spinnerDelegate.setSelection(0, false)
         fragmentCameraBinding.bottomSheetLayout.spinnerDelegate.onItemSelectedListener =
             object : AdapterView.OnItemSelectedListener {
@@ -193,13 +189,10 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         fragmentCameraBinding.bottomSheetLayout.threadsValue.text =
             objectDetectorHelper.numThreads.toString()
 
-        // Needs to be cleared instead of reinitialized because the GPU
-        // delegate needs to be initialized on the thread using it when applicable
         objectDetectorHelper.clearObjectDetector()
         fragmentCameraBinding.overlay.clear()
     }
 
-    // Initialize CameraX, and prepare to bind the camera use cases
     private fun setUpCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener(
@@ -245,8 +238,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 .also {
                     it.setAnalyzer(cameraExecutor) { image ->
                         if (!::bitmapBuffer.isInitialized) {
-                            // The image rotation and RGB image buffer are initialized only once
-                            // the analyzer has started running
+
                             bitmapBuffer = Bitmap.createBitmap(
                                 image.width,
                                 image.height,
@@ -262,11 +254,8 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         cameraProvider.unbindAll()
 
         try {
-            // A variable number of use-cases can be passed here -
-            // camera provides access to CameraControl & CameraInfo
             camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
 
-            // Attach the viewfinder's surface provider to preview use case
             preview?.setSurfaceProvider(fragmentCameraBinding.viewFinder.surfaceProvider)
         } catch (exc: Exception) {
             Log.e(TAG, "Use case binding failed", exc)
@@ -294,9 +283,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         _fragmentCameraBinding = null
     }
 
-
-    // Update UI after objects have been detected. Extracts original image height/width
-    // to scale and place bounding boxes properly through OverlayView
     override fun onResults(
         results: MutableList<Detection>?,
         inferenceTime: Long,
