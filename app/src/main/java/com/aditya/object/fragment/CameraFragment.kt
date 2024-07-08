@@ -191,11 +191,11 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     private fun initButtons() {
         fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
-            handleVoiceCommand("start button")
+            handleVoiceCommand("start object detection")
         }
 
         fragmentCameraBinding.btnStopTextDetection.setOnClickListener {
-            handleVoiceCommand("stop button")
+            handleVoiceCommand("stop object detection")
         }
 
         fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
