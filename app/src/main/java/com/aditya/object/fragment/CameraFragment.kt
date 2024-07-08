@@ -53,7 +53,8 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private val TAG = "ObjectDetection"
 
     private var _fragmentCameraBinding: FragmentCameraBinding? = null
-    private var isObjectDetection: Boolean = true
+    private var isObjectDetection: Boolean = false
+    private var isTextRecognition: Boolean = false
     private var textRecognizer: TextRecognizer? = null
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var speechRecognizerIntent: Intent
@@ -81,6 +82,8 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         if (!PermissionFragment.hasPermissions(requireContext())) {
             Navigation.findNavController(requireActivity(), R.id.fragment_container)
                 .navigate(CameraFragmentDirections.actionCameraToPermissions())
+        }else{
+            setupSpeechRecognizer()
         }
     }
 
@@ -159,29 +162,51 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     }
 
     private fun handleVoiceCommand(command: String) {
-        when(command){
+        when (command) {
+            "start object detection" -> {
+                isObjectDetection = true
+                isTextRecognition = false
+                fragmentCameraBinding.overlay.clear()
+                Toast.makeText(requireContext(), "Object Detection Started", Toast.LENGTH_SHORT).show()
+            }
+            "stop object detection" -> {
+                isObjectDetection = false
+                fragmentCameraBinding.overlay.clear()
+                Toast.makeText(requireContext(), "Object Detection Stopped", Toast.LENGTH_SHORT).show()
+            }
             "read text" -> {
                 isObjectDetection = false
+                isTextRecognition = true
                 fragmentCameraBinding.overlay.clear()
                 Toast.makeText(requireContext(), "Text Detection Started", Toast.LENGTH_SHORT).show()
             }
             "stop reading" -> {
-                isObjectDetection = true
+                isTextRecognition = false
                 fragmentCameraBinding.overlay.clear()
                 Toast.makeText(requireContext(), "Text Detection Stopped", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun initButtons(){
+
+    private fun initButtons() {
+        fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
+            handleVoiceCommand("start button")
+        }
+
+        fragmentCameraBinding.btnStopTextDetection.setOnClickListener {
+            handleVoiceCommand("stop button")
+        }
+
         fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
             handleVoiceCommand("read text")
         }
 
-        fragmentCameraBinding.btnStopTextDetection.setOnClickListener{
+        fragmentCameraBinding.btnStopTextDetection.setOnClickListener {
             handleVoiceCommand("stop reading")
         }
     }
+
 
     @SuppressLint("MissingPermission")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -318,43 +343,34 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     // Declare and bind preview, capture and analysis use cases
     @SuppressLint("UnsafeOptInUsageError")
     private fun bindCameraUseCases() {
-
-        // CameraProvider
         val cameraProvider = cameraProvider ?: throw IllegalStateException("Camera initialization failed.")
-
-        // CameraSelector - makes assumption that we're only using the back camera
         val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
 
-        // Preview. Only using the 4:3 ratio because this is the closest to our models
         preview = Preview.Builder()
             .setTargetAspectRatio(AspectRatio.RATIO_4_3)
             .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
             .build()
 
-        // ImageAnalysis. Using YUV_420_888 format which is supported by InputImage.fromMediaImage
         imageAnalyzer = ImageAnalysis.Builder()
             .setTargetAspectRatio(AspectRatio.RATIO_4_3)
             .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_YUV_420_888) // Update this line
+            .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_YUV_420_888)
             .build()
-            // The analyzer can then be assigned to the instance
             .also {
                 it.setAnalyzer(cameraExecutor) { image ->
-                    if (isObjectDetection) {
-                        detectObjects(image)
-                    } else {
-                        detectText(image)
+                    when {
+                        isObjectDetection -> detectObjects(image)
+                        isTextRecognition -> detectText(image)
+                        else -> image.close()  // Close the image immediately if neither detection is enabled
                     }
                 }
             }
 
-        // Must unbind the use-cases before rebinding them
         cameraProvider.unbindAll()
 
         try {
             camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
-
             preview?.setSurfaceProvider(fragmentCameraBinding.viewFinder.surfaceProvider)
         } catch (exc: Exception) {
             Log.e(TAG, "Use case binding failed", exc)
@@ -439,7 +455,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     override fun onDestroyView() {
         super.onDestroyView()
         textRecognizer?.close()
-        speechRecognizer.destroy()
+        speechRecognizer.stopListening()
         textToSpeech.shutdown()
         cameraExecutor.shutdown()
         _fragmentCameraBinding = null
