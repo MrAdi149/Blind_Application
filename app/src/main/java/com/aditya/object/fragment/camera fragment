@@ -1,167 +1,275 @@
-package com.aditya.`object`
-
-import android.content.Context
-import android.graphics.Bitmap
-import android.os.SystemClock
+import android.os.Bundle
+import android.speech.RecognizerIntent
+import android.speech.RecognitionListener
+import android.speech.SpeechRecognizer
 import android.util.Log
-import org.tensorflow.lite.gpu.CompatibilityList
-import org.tensorflow.lite.support.image.ImageProcessor
-import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.image.ops.Rot90Op
-import org.tensorflow.lite.task.core.BaseOptions
-import org.tensorflow.lite.task.vision.detector.Detection
-import org.tensorflow.lite.task.vision.detector.ObjectDetector
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import com.aditya.`object`.ObjectDetectorHelper
+import com.aditya.`object`.R
+import com.aditya.`object`.databinding.FragmentCameraBinding
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.util.*
 
-class ObjectDetectorHelper(
-    var threshold: Float = 0.5f,
-    var numThreads: Int = 2,
-    var maxResults: Int = 3,
-    var currentDelegate: Int = 0,
-    var currentModel: Int = 0,
-    val context: Context,
-    val objectDetectorListener: DetectorListener?
-) {
+class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
-    // For this example this needs to be a var so it can be reset on changes. If the ObjectDetector
-    // will not change, a lazy val would be preferable.
-    private var objectDetector: ObjectDetector? = null
+    private val TAG = "ObjectDetection"
+    private var _fragmentCameraBinding: FragmentCameraBinding? = null
+    private val fragmentCameraBinding
+        get() = _fragmentCameraBinding!!
 
-    init {
-        setupObjectDetector()
+    private lateinit var objectDetectorHelper: ObjectDetectorHelper
+    private lateinit var textToSpeech: TextToSpeech
+    private lateinit var cameraExecutor: ExecutorService
+
+    private var isObjectDetection: Boolean = true
+    private lateinit var textRecognizer: com.google.mlkit.vision.text.TextRecognizer
+    private lateinit var speechRecognizer: SpeechRecognizer
+    private lateinit var speechRecognizerIntent: Intent
+
+    private val RECORD_REQUEST_CODE = 101
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _fragmentCameraBinding = FragmentCameraBinding.inflate(inflater, container, false)
+
+        // Initialize the text recognizer
+        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
+
+        checkPermission()
+        setupSpeechRecognizer()
+        initButtons()
+
+        return fragmentCameraBinding.root
     }
 
-    fun clearObjectDetector() {
-        objectDetector = null
-    }
-
-    // Initialize the object detector using current settings on the
-    // thread that is using it. CPU and NNAPI delegates can be used with detectors
-    // that are created on the main thread and used on a background thread, but
-    // the GPU delegate needs to be used on the thread that initialized the detector
-    fun setupObjectDetector() {
-        // Create the base options for the detector using specifies max results and score threshold
-        val optionsBuilder =
-            ObjectDetector.ObjectDetectorOptions.builder()
-                .setScoreThreshold(threshold)
-                .setMaxResults(maxResults)
-
-        // Set general detection options, including number of used threads
-        val baseOptionsBuilder = BaseOptions.builder().setNumThreads(numThreads)
-
-        // Use the specified hardware for running the model. Default to CPU
-        when (currentDelegate) {
-            DELEGATE_CPU -> {
-                // Default
-            }
-            DELEGATE_GPU -> {
-                if (CompatibilityList().isDelegateSupportedOnThisDevice) {
-                    baseOptionsBuilder.useGpu()
-                } else {
-                    objectDetectorListener?.onError("GPU is not supported on this device")
-                }
-            }
-            DELEGATE_NNAPI -> {
-                baseOptionsBuilder.useNnapi()
-            }
-        }
-
-        optionsBuilder.setBaseOptions(baseOptionsBuilder.build())
-
-        val modelName =
-            when (currentModel) {
-                MODEL_MOBILENETV1 -> "mobilenetv1.tflite"
-                MODEL_EFFICIENTDETV0 -> "efficientdet-lite0.tflite"
-                MODEL_EFFICIENTDETV1 -> "efficientdet-lite1.tflite"
-                MODEL_EFFICIENTDETV2 -> "efficientdet-lite2.tflite"
-                else -> "mobilenetv1.tflite"
-            }
-
-        try {
-            objectDetector =
-                ObjectDetector.createFromFileAndOptions(context, modelName, optionsBuilder.build())
-        } catch (e: IllegalStateException) {
-            objectDetectorListener?.onError(
-                "Object detector failed to initialize. See error logs for details"
+    private fun checkPermission() {
+        if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(android.Manifest.permission.RECORD_AUDIO),
+                RECORD_REQUEST_CODE
             )
-            Log.e("Test", "TFLite failed to load model with error: " + e.message)
         }
     }
 
-    fun focalLength(measuredDistance: Double, realWidth: Double, widthInFrame: Int): Double {
-        // This function calculates the focal length based on the measured distance, real width, and width in the frame
-        return (widthInFrame * measuredDistance) / realWidth
+    private fun setupSpeechRecognizer() {
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
+        speechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+        speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            override fun onError(error: Int) {
+                Log.e(TAG, "Speech Recognition Error: $error")
+                listenToVoiceCommands()
+            }
+            override fun onResults(results: Bundle?) {
+                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
+                    if (matches.isNotEmpty()) {
+                        val command = matches[0].toLowerCase(Locale.ROOT)
+                        handleVoiceCommand(command)
+                    }
+                }
+                // Restart listening after processing results
+                listenToVoiceCommands()
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+        listenToVoiceCommands()
     }
 
-    fun distanceFinder(focalLength: Double, realFaceWidth: Double, faceWidthInFrame: Int): Double {
-        // This function estimates the distance between the object and the camera
-        return (realFaceWidth * focalLength) / faceWidthInFrame
+    private fun listenToVoiceCommands() {
+        speechRecognizer.startListening(speechRecognizerIntent)
     }
 
-
-    fun calculateDistance(measuredDistance: Double, realWidth: Double, widthInFrame: Int, faceWidthInPixels: Int): Double {
-        val focalLength = focalLength(measuredDistance, realWidth, widthInFrame)
-        val distance = distanceFinder(focalLength, realWidth, faceWidthInPixels)
-        return distance
+    private fun handleVoiceCommand(command: String) {
+        when (command) {
+            "start detecting" -> {
+                isObjectDetection = false
+                fragmentCameraBinding.overlay.clear()
+                Toast.makeText(requireContext(), "Text Detection Started", Toast.LENGTH_SHORT).show()
+            }
+            "stop detecting" -> {
+                isObjectDetection = true
+                fragmentCameraBinding.overlay.clear()
+                Toast.makeText(requireContext(), "Text Detection Stopped", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
-    fun detectAndEstimateDistance(image: Bitmap, imageRotation: Int, faceWidthInPixels: Int, imageProcessor: ImageProcessor) {
-        if (objectDetector == null) {
-            setupObjectDetector()
+    private fun initButtons() {
+        fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
+            handleVoiceCommand("start detecting")
         }
 
-        var inferenceTime = SystemClock.uptimeMillis()
-
-        val tensorImage = TensorImage.fromBitmap(image)
-        val processedImage = imageProcessor.process(tensorImage)
-        val results = objectDetector?.detect(processedImage)
-
-        inferenceTime = SystemClock.uptimeMillis() - inferenceTime
-
-        val distance = calculateDistance(30.0, 5.7, image.width, faceWidthInPixels)
-
-        objectDetectorListener?.onResults(results, inferenceTime, image.height, image.width, distance)
-    }
-
-    fun detect(image: Bitmap, imageRotation: Int, faceWidthInPixels: Int) {
-        if (objectDetector == null) {
-            setupObjectDetector()
+        fragmentCameraBinding.btnStopTextDetection.setOnClickListener {
+            handleVoiceCommand("stop detecting")
         }
-
-        var inferenceTime = SystemClock.uptimeMillis()
-
-        val imageProcessor = ImageProcessor.Builder()
-            .add(Rot90Op(-imageRotation / 90))
-            .build()
-
-        val tensorImage = imageProcessor.process(TensorImage.fromBitmap(image))
-
-        val results = objectDetector?.detect(tensorImage)
-        inferenceTime = SystemClock.uptimeMillis() - inferenceTime
-
-        val distance = calculateDistance(30.0, 5.7, image.width, faceWidthInPixels)
-
-        objectDetectorListener?.onResults(results, inferenceTime, tensorImage.height, tensorImage.width, distance)
     }
 
+    @SuppressLint("UnsafeOptInUsageError")
+    private fun bindCameraUseCases() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener(
+            {
+                // CameraProvider
+                val cameraProvider = cameraProviderFuture.get()
 
-    interface DetectorListener {
-        fun onError(error: String)
-        fun onResults(
-            results: MutableList<Detection>?,
-            inferenceTime: Long,
-            imageHeight: Int,
-            imageWidth: Int,
-            distance: Double
+                // CameraSelector - makes assumption that we're only using the back camera
+                val cameraSelector =
+                    CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
+
+                // Preview. Only using the 4:3 ratio because this is the closest to our models
+                val preview = Preview.Builder()
+                    .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                    .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
+                    .build()
+
+                // ImageAnalysis. Using RGBA 8888 to match how our models work
+                val imageAnalyzer = ImageAnalysis.Builder()
+                    .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                    .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    .build()
+                    // The analyzer can then be assigned to the instance
+                    .also {
+                        it.setAnalyzer(cameraExecutor) { image ->
+                            if (isObjectDetection) {
+                                detectObjects(image)
+                            } else {
+                                detectText(image)
+                            }
+                        }
+                    }
+
+                // Must unbind the use-cases before rebinding them
+                cameraProvider.unbindAll()
+
+                try {
+                    val camera = cameraProvider.bindToLifecycle(
+                        this, cameraSelector, preview, imageAnalyzer
+                    )
+
+                    preview.setSurfaceProvider(fragmentCameraBinding.viewFinder.surfaceProvider)
+                } catch (exc: Exception) {
+                    Log.e(TAG, "Use case binding failed", exc)
+                }
+            },
+            ContextCompat.getMainExecutor(requireContext())
         )
     }
 
-    companion object {
-        const val DELEGATE_CPU = 0
-        const val DELEGATE_GPU = 1
-        const val DELEGATE_NNAPI = 2
-        const val MODEL_MOBILENETV1 = 0
-        const val MODEL_EFFICIENTDETV0 = 1
-        const val MODEL_EFFICIENTDETV1 = 2
-        const val MODEL_EFFICIENTDETV2 = 3
+    private fun detectObjects(image: ImageProxy) {
+        // Copy out RGB bits to the shared bitmap buffer
+        image.use {
+            // Initialize bitmapBuffer if needed
+            if (!::bitmapBuffer.isInitialized) {
+                bitmapBuffer = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+            }
+            bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer)
+        }
+
+        val imageRotation = image.imageInfo.rotationDegrees
+        // Pass Bitmap and rotation to the object detector helper for processing and detection
+        objectDetectorHelper.detect(bitmapBuffer, imageRotation)
+    }
+
+    private fun detectText(image: ImageProxy) {
+        val mediaImage = image.image ?: return
+        val inputImage = InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
+
+        textRecognizer.process(inputImage)
+            .addOnSuccessListener { visionText ->
+                // Process the visionText
+                drawTextBoundingBoxes(visionText.textBlocks)
+                image.close()
+            }
+            .addOnFailureListener { e ->
+                // Handle any errors
+                Log.e(TAG, "Text Recognition Error: $e")
+                image.close()
+            }
+    }
+
+    private fun drawTextBoundingBoxes(textBlocks: List<Text.TextBlock>) {
+        val canvas = fragmentCameraBinding.overlay.createCanvas()
+        textBlocks.forEach { block ->
+            val rect = block.boundingBox ?: Rect()
+            canvas.drawRect(rect, boxPaint)
+
+            val drawableText = block.text
+            canvas.drawText(drawableText, rect.left.toFloat(), rect.bottom.toFloat(), textPaint)
+        }
+        fragmentCameraBinding.overlay.invalidate()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        textRecognizer.close()
+        speechRecognizer.destroy()
+        cameraExecutor.shutdown()
+        _fragmentCameraBinding = null
+    }
+
+    override fun onResults(
+        results: MutableList<Detection>?,
+        inferenceTime: Long,
+        imageHeight: Int,
+        imageWidth: Int
+    ) {
+        activity?.runOnUiThread {
+            // Check if results are not null and contain at least one detection
+            if (!results.isNullOrEmpty()) {
+                val currentDetectedObject = results[0].categories.firstOrNull()?.label
+
+                currentDetectedObject?.let { objectLabel ->
+                    // Speak the detected object name immediately without depending on inference time
+                    if (currentDetectedObject != previousDetectedObject) {
+                        textToSpeech.speak(objectLabel, TextToSpeech.QUEUE_FLUSH, null, null)
+                        previousDetectedObject = objectLabel
+                    }
+                }
+            }
+
+            // Update the UI if needed
+            fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal.text =
+                String.format("%d ms", inferenceTime)
+
+            // Pass necessary information to OverlayView for drawing on the canvas
+            fragmentCameraBinding.overlay.setResults(
+                results ?: LinkedList(),
+                imageHeight,
+                imageWidth
+            )
+
+            // Force a redraw
+            fragmentCameraBinding.overlay.invalidate()
+        }
+    }
+
+    override fun onError(error: String) {
+        activity?.runOnUiThread {
+            Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show()
+        }
     }
 }

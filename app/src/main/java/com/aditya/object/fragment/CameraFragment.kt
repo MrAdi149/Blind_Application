@@ -1,31 +1,47 @@
 package com.aditya.`object`.fragment
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888
+import android.graphics.Rect
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.Toast
+import androidx.annotation.OptIn
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.Navigation
-import com.aditya.`object`.DetectionData
+import com.aditya.`object`.BitmapUtils
 import com.aditya.`object`.ObjectDetectorHelper
 import com.aditya.`object`.R
 import com.aditya.`object`.databinding.FragmentCameraBinding
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.util.LinkedList
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -37,6 +53,12 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private val TAG = "ObjectDetection"
 
     private var _fragmentCameraBinding: FragmentCameraBinding? = null
+    private var isObjectDetection: Boolean = true
+    private var textRecognizer: TextRecognizer? = null
+    private lateinit var speechRecognizer: SpeechRecognizer
+    private lateinit var speechRecognizerIntent: Intent
+
+    private val RECORD_REQUEST_CODE = 101
 
     private val fragmentCameraBinding
         get() = _fragmentCameraBinding!!
@@ -49,7 +71,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private lateinit var textToSpeech: TextToSpeech
     private var cameraProvider: ProcessCameraProvider? = null
 
-    /** Blocking camera operations are performed using this executor */
     private lateinit var cameraExecutor: ExecutorService
 
     private var previousDetectedObject: String? = null
@@ -69,8 +90,97 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         savedInstanceState: Bundle?
     ): View {
         _fragmentCameraBinding = FragmentCameraBinding.inflate(inflater, container, false)
+        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
+
+        checkPermission()
+        setupSpeechRecognizer()
+        initButtons()
 
         return fragmentCameraBinding.root
+    }
+
+    private fun checkPermission(){
+        if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(android.Manifest.permission.RECORD_AUDIO),
+                RECORD_REQUEST_CODE
+            )
+        }
+    }
+
+    private fun setupSpeechRecognizer(){
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
+        speechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+        speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+
+        speechRecognizer.setRecognitionListener(object : RecognitionListener{
+            override fun onReadyForSpeech(params: Bundle?) {
+
+            }
+
+            override fun onBeginningOfSpeech() {
+            }
+
+            override fun onRmsChanged(rmsdB: Float) {
+            }
+
+            override fun onBufferReceived(buffer: ByteArray?) {
+            }
+
+            override fun onEndOfSpeech() {
+            }
+
+            override fun onError(error: Int) {
+                Log.e(TAG, "Speech Recognition Error: $error")
+                listenToVoiceCommands()
+            }
+
+            override fun onResults(results: Bundle?) {
+                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
+                    if (matches.isNotEmpty()) {
+                        val command = matches[0].toLowerCase(Locale.ROOT)
+                        handleVoiceCommand(command)
+                    }
+                }
+                // Restart listening after processing results
+                listenToVoiceCommands()
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+        listenToVoiceCommands()
+    }
+
+    private fun listenToVoiceCommands(){
+        speechRecognizer.startListening(speechRecognizerIntent)
+    }
+
+    private fun handleVoiceCommand(command: String) {
+        when(command){
+            "read text" -> {
+                isObjectDetection = false
+                fragmentCameraBinding.overlay.clear()
+                Toast.makeText(requireContext(), "Text Detection Started", Toast.LENGTH_SHORT).show()
+            }
+            "stop reading" -> {
+                isObjectDetection = true
+                fragmentCameraBinding.overlay.clear()
+                Toast.makeText(requireContext(), "Text Detection Stopped", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun initButtons(){
+        fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
+            handleVoiceCommand("read text")
+        }
+
+        fragmentCameraBinding.btnStopTextDetection.setOnClickListener{
+            handleVoiceCommand("stop reading")
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -100,8 +210,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         // Attach listeners to UI control widgets
         initBottomSheetControls()
     }
-
-
 
     private fun initBottomSheetControls() {
         // When clicked, lower detection score threshold floor
@@ -212,43 +320,34 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private fun bindCameraUseCases() {
 
         // CameraProvider
-        val cameraProvider =
-            cameraProvider ?: throw IllegalStateException("Camera initialization failed.")
+        val cameraProvider = cameraProvider ?: throw IllegalStateException("Camera initialization failed.")
 
         // CameraSelector - makes assumption that we're only using the back camera
-        val cameraSelector =
-            CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
+        val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
 
         // Preview. Only using the 4:3 ratio because this is the closest to our models
-        preview =
-            Preview.Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
-                .build()
+        preview = Preview.Builder()
+            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+            .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
+            .build()
 
-        // ImageAnalysis. Using RGBA 8888 to match how our models work
-        imageAnalyzer =
-            ImageAnalysis.Builder()
-                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-                .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                .build()
-                // The analyzer can then be assigned to the instance
-                .also {
-                    it.setAnalyzer(cameraExecutor) { image ->
-                        if (!::bitmapBuffer.isInitialized) {
-
-                            bitmapBuffer = Bitmap.createBitmap(
-                                image.width,
-                                image.height,
-                                Bitmap.Config.ARGB_8888
-                            )
-                        }
-
+        // ImageAnalysis. Using YUV_420_888 format which is supported by InputImage.fromMediaImage
+        imageAnalyzer = ImageAnalysis.Builder()
+            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+            .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_YUV_420_888) // Update this line
+            .build()
+            // The analyzer can then be assigned to the instance
+            .also {
+                it.setAnalyzer(cameraExecutor) { image ->
+                    if (isObjectDetection) {
                         detectObjects(image)
+                    } else {
+                        detectText(image)
                     }
                 }
+            }
 
         // Must unbind the use-cases before rebinding them
         cameraProvider.unbindAll()
@@ -263,13 +362,74 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     }
 
     private fun detectObjects(image: ImageProxy) {
-        // Copy out RGB bits to the shared bitmap buffer
-        image.use { bitmapBuffer.copyPixelsFromBuffer(image.planes[0].buffer) }
+        // Convert YUV_420_888 ImageProxy to Bitmap
+        val bitmap = BitmapUtils.imageProxyToBitmap(image)
 
         val imageRotation = image.imageInfo.rotationDegrees
+        image.close()
+
         // Pass Bitmap and rotation to the object detector helper for processing and detection
-        objectDetectorHelper.detect(bitmapBuffer, imageRotation)
+        objectDetectorHelper.detect(bitmap, imageRotation)
     }
+
+
+    @OptIn(ExperimentalGetImage::class)
+    private fun detectText(image: ImageProxy) {
+        val mediaImage = image.image ?: return
+        val inputImage = InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
+
+        textRecognizer?.process(inputImage)
+            ?.addOnSuccessListener { visionText ->
+                // Pass the detected text blocks to OverlayView for drawing
+                fragmentCameraBinding.overlay.setResults(
+                    emptyList(), mediaImage.height, mediaImage.width, visionText.textBlocks
+                )
+
+                // Read each text block one by one
+                if (visionText.textBlocks.isNotEmpty()) {
+                    readDetectedText(visionText.textBlocks.map { it.text })
+                }
+
+                image.close()
+            }
+            ?.addOnFailureListener { e ->
+                Log.e(TAG, "Text Recognition Error: $e")
+                image.close()
+            }
+    }
+
+
+    private fun readDetectedText(textBlocks: List<String>) {
+        if (textBlocks.isEmpty() || textToSpeech.isSpeaking) {
+            return
+        }
+
+        // Concatenate all text blocks to form a single string to be read
+        val textToRead = textBlocks.joinToString(" ")
+
+        // Use a unique utterance ID to track when the speech is completed
+        val utteranceId = "UtteranceID-${System.currentTimeMillis()}"
+
+        // Set an utterance progress listener to listen to completion
+        textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String) {
+                // No-op
+            }
+
+            override fun onDone(utteranceId: String) {
+                // Reset the textToSpeech state after completion
+            }
+
+            override fun onError(utteranceId: String) {
+                // Handle error
+            }
+        })
+
+        // Speak the concatenated text blocks
+        textToSpeech.speak(textToRead, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+    }
+
+
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
@@ -278,6 +438,8 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        textRecognizer?.close()
+        speechRecognizer.destroy()
         textToSpeech.shutdown()
         cameraExecutor.shutdown()
         _fragmentCameraBinding = null
@@ -293,6 +455,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             // Check if results are not null and contain at least one detection
             if (!results.isNullOrEmpty()) {
                 val currentDetectedObject = results[0].categories.firstOrNull()?.label
+                val currentTextDetection = results[0].categories.firstOrNull()?.label
 
                 currentDetectedObject?.let { objectLabel ->
                     // Speak the detected object name immediately without depending on inference time
