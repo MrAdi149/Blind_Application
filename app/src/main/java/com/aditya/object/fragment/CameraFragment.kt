@@ -80,6 +80,8 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     companion object {
         private const val KEY_IS_OBJECT_DETECTION = "KEY_IS_OBJECT_DETECTION"
         private const val KEY_IS_TEXT_RECOGNITION = "KEY_IS_TEXT_RECOGNITION"
+        private const val ANALYSIS_INTERVAL_MS = 500L
+        private var lastAnalyzedTimestamp = 0L
     }
 
     override fun onResume() {
@@ -224,7 +226,9 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
             else -> "Unknown error"
         }
-        Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show()
+        if (errorMessage.isNotEmpty()) {
+            Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun restartSpeechRecognizer() {
@@ -418,10 +422,16 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             .build()
             .also {
                 it.setAnalyzer(cameraExecutor) { image ->
-                    when {
-                        isObjectDetection -> detectObjects(image)
-                        isTextRecognition -> detectText(image)
-                        else -> image.close()  // Close the image immediately if neither detection is enabled
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastAnalyzedTimestamp >= ANALYSIS_INTERVAL_MS) {
+                        lastAnalyzedTimestamp = currentTime
+                        when {
+                            isObjectDetection -> detectObjects(image)
+                            isTextRecognition -> detectText(image)
+                            else -> image.close()
+                        }
+                    } else {
+                        image.close()
                     }
                 }
             }
@@ -443,8 +453,10 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         val imageRotation = image.imageInfo.rotationDegrees
         image.close()
 
-        // Pass Bitmap and rotation to the object detector helper for processing and detection
-        objectDetectorHelper.detect(bitmap, imageRotation)
+        // Run detection on the main thread
+        Handler(Looper.getMainLooper()).post {
+            objectDetectorHelper.detect(bitmap, imageRotation)
+        }
     }
 
     @OptIn(ExperimentalGetImage::class)
@@ -454,16 +466,12 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
         textRecognizer?.process(inputImage)
             ?.addOnSuccessListener { visionText ->
-                // Pass the detected text blocks to OverlayView for drawing
                 fragmentCameraBinding.overlay.setResults(
                     emptyList(), mediaImage.height, mediaImage.width, visionText.textBlocks
                 )
-
-                // Read each text block one by one
                 if (visionText.textBlocks.isNotEmpty()) {
                     readDetectedText(visionText.textBlocks.map { it.text })
                 }
-
                 image.close()
             }
             ?.addOnFailureListener { e ->
@@ -477,13 +485,9 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             return
         }
 
-        // Concatenate all text blocks to form a single string to be read
         val textToRead = textBlocks.joinToString(" ")
-
-        // Use a unique utterance ID to track when the speech is completed
         val utteranceId = "UtteranceID-${System.currentTimeMillis()}"
 
-        // Set an utterance progress listener to listen to completion
         textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String) {
                 // No-op
@@ -498,7 +502,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             }
         })
 
-        // Speak the concatenated text blocks
         textToSpeech.speak(textToRead, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
@@ -523,12 +526,10 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         imageWidth: Int
     ) {
         activity?.runOnUiThread {
-            // Check if results are not null and contain at least one detection
             if (!results.isNullOrEmpty()) {
                 val currentDetectedObject = results[0].categories.firstOrNull()?.label
 
                 currentDetectedObject?.let { objectLabel ->
-                    // Speak the detected object name immediately without depending on inference time
                     if (currentDetectedObject != previousDetectedObject) {
                         textToSpeech.speak(objectLabel, TextToSpeech.QUEUE_FLUSH, null, null)
                         previousDetectedObject = objectLabel
@@ -536,18 +537,15 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 }
             }
 
-            // Update the UI if needed
             fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal.text =
                 String.format("%d ms", inferenceTime)
 
-            // Pass necessary information to OverlayView for drawing on the canvas
             fragmentCameraBinding.overlay.setResults(
                 results ?: LinkedList(),
                 imageHeight,
                 imageWidth
             )
 
-            // Force a redraw
             fragmentCameraBinding.overlay.invalidate()
         }
     }
