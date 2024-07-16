@@ -16,8 +16,8 @@ class ObjectDetectorHelper(
     var threshold: Float = 0.5f,
     var numThreads: Int = 2,
     var maxResults: Int = 3,
-    var currentDelegate: Int = 0,
-    var currentModel: Int = 0,
+    var currentDelegate: Int = DELEGATE_GPU,  // Set GPU as the default delegate
+    var currentModel: Int = MODEL_EFFICIENTDETV1,  // Set efficientdet-lite1.tflite as the default model
     val context: Context,
     val objectDetectorListener: DetectorListener?
 ) {
@@ -33,7 +33,7 @@ class ObjectDetectorHelper(
     }
 
     private fun setupObjectDetector() {
-        // Create the base options for the detector using specifies max results and score threshold
+        // Create the base options for the detector using specified max results and score threshold
         val optionsBuilder =
             ObjectDetector.ObjectDetectorOptions.builder()
                 .setScoreThreshold(threshold)
@@ -42,17 +42,19 @@ class ObjectDetectorHelper(
         // Set general detection options, including number of used threads
         val baseOptionsBuilder = BaseOptions.builder().setNumThreads(numThreads)
 
-        // Use the specified hardware for running the model. Default to CPU
+        // Use the specified hardware for running the model. Default to GPU
+        val compatList = CompatibilityList()
         when (currentDelegate) {
             DELEGATE_GPU -> {
-                if (CompatibilityList().isDelegateSupportedOnThisDevice) {
+                if (compatList.isDelegateSupportedOnThisDevice) {
                     baseOptionsBuilder.useGpu()
                 } else {
-                    objectDetectorListener?.onError("GPU is not supported on this device")
+                    objectDetectorListener?.onError("GPU is not supported on this device, switching to NNAPI")
+                    baseOptionsBuilder.useNnapi()
                 }
             }
             DELEGATE_CPU -> {
-                // Default
+                // Default to CPU, nothing to add here
             }
             DELEGATE_NNAPI -> {
                 baseOptionsBuilder.useNnapi()
@@ -67,7 +69,7 @@ class ObjectDetectorHelper(
                 MODEL_MOBILENETV1 -> "mobilenetv1.tflite"
                 MODEL_EFFICIENTDETV1 -> "efficientdet-lite1.tflite"
                 MODEL_EFFICIENTDETV2 -> "efficientdet-lite2.tflite"
-                else -> "efficientdet-lite0.tflite"
+                else -> "efficientdet-lite1.tflite"  // Default to efficientdet-lite1.tflite
             }
 
         try {
@@ -77,7 +79,7 @@ class ObjectDetectorHelper(
             objectDetectorListener?.onError(
                 "Object detector failed to initialize. See error logs for details"
             )
-            Log.e("Test", "TFLite failed to load model with error: " + e.message)
+            Log.e("ObjectDetection", "TFLite failed to load model with error: " + e.message)
         }
     }
 
