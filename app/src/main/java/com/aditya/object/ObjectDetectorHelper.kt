@@ -33,16 +33,12 @@ class ObjectDetectorHelper(
     }
 
     private fun setupObjectDetector() {
-        // Create the base options for the detector using specified max results and score threshold
-        val optionsBuilder =
-            ObjectDetector.ObjectDetectorOptions.builder()
-                .setScoreThreshold(threshold)
-                .setMaxResults(maxResults)
+        val optionsBuilder = ObjectDetector.ObjectDetectorOptions.builder()
+            .setScoreThreshold(threshold)
+            .setMaxResults(maxResults)
 
-        // Set general detection options, including number of used threads
         val baseOptionsBuilder = BaseOptions.builder().setNumThreads(numThreads)
 
-        // Use the specified hardware for running the model. Default to GPU
         val compatList = CompatibilityList()
         when (currentDelegate) {
             DELEGATE_GPU -> {
@@ -53,12 +49,8 @@ class ObjectDetectorHelper(
                     baseOptionsBuilder.useNnapi()
                 }
             }
-            DELEGATE_CPU -> {
-                // Default to CPU, nothing to add here
-            }
-            DELEGATE_NNAPI -> {
-                baseOptionsBuilder.useNnapi()
-            }
+            DELEGATE_CPU -> { /* Default to CPU */ }
+            DELEGATE_NNAPI -> baseOptionsBuilder.useNnapi()
         }
 
         optionsBuilder.setBaseOptions(baseOptionsBuilder.build())

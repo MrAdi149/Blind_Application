@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.AttributeSet
+import android.util.Log
 import android.view.View
 import androidx.core.content.ContextCompat
 import com.aditya.`object`.R
@@ -26,6 +27,11 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
     private var textBackgroundPaint = Paint()
     private var textPaint = Paint()
 
+    private var descriptionBoxPaint = Paint()
+    private var descriptionTextPaint = Paint()
+    private var description: String? = null
+    private var describedObject: Detection? = null
+
     private var scaleFactor: Float = 1f
 
     private var bounds = Rect()
@@ -37,6 +43,8 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
     fun clear() {
         textBlocks = LinkedList()
         results = LinkedList()
+        description = null
+        describedObject = null
         invalidate()
     }
 
@@ -74,10 +82,24 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
         textPaint.style = Paint.Style.FILL
         textPaint.isAntiAlias = true
         textPaint.setShadowLayer(2.0f, 0.0f, 0.0f, Color.BLACK)
+
+        // Paint for description box
+        descriptionBoxPaint.color = Color.argb(200, 0, 0, 0) // More opaque black
+        descriptionBoxPaint.style = Paint.Style.FILL
+
+        // Paint for description text
+        descriptionTextPaint.color = Color.YELLOW
+        descriptionTextPaint.textSize = 60f
+        descriptionTextPaint.style = Paint.Style.FILL_AND_STROKE
+        descriptionTextPaint.strokeWidth = 2f
+        descriptionTextPaint.isAntiAlias = true
+        descriptionTextPaint.setShadowLayer(5.0f, 0.0f, 0.0f, Color.BLACK)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+
+        Log.d("OverlayView", "onDraw called")
 
         // Draw detected objects
         for (result in results) {
@@ -87,6 +109,8 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
             val bottom = boundingBox.bottom * scaleFactor
             val left = boundingBox.left * scaleFactor
             val right = boundingBox.right * scaleFactor
+
+            Log.d("OverlayView", "Drawing object bounding box at: $left, $top, $right, $bottom")
 
             // Draw bounding box around detected objects with rounded corners
             val drawableRect = RectF(left, top, right, bottom)
@@ -108,12 +132,26 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
 
             // Draw text for detected object
             canvas.drawText(drawableText, left + BOUNDING_RECT_TEXT_PADDING, top + textHeight + BOUNDING_RECT_TEXT_PADDING, objectTextPaint)
+
+            // Draw description if the described object matches the current result
+            if (describedObject == result && description != null) {
+                val descriptionWidth = descriptionTextPaint.measureText(description)
+                val descriptionHeight = descriptionTextPaint.textSize
+                canvas.drawRoundRect(
+                    RectF(left, bottom + 16f, left + descriptionWidth + 32f, bottom + descriptionHeight + 48f),
+                    16f,
+                    16f,
+                    descriptionBoxPaint
+                )
+                canvas.drawText(description!!, left + 16f, bottom + descriptionHeight + 32f, descriptionTextPaint)
+            }
         }
 
         // Draw detected text blocks
         textBlocks?.forEach { textBlock ->
             textBlock.boundingBox?.let { rect ->
                 val scaledRect = scaleRect(rect, scaleFactor)
+                Log.d("OverlayView", "Drawing text block bounding box at: ${scaledRect.left}, ${scaledRect.top}, ${scaledRect.right}, ${scaledRect.bottom}")
                 canvas.drawRoundRect(RectF(scaledRect), 16f, 16f, textBlockBoxPaint)
 
                 // Draw each line of text within the text block
@@ -125,6 +163,7 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
             }
         }
     }
+
 
     private fun scaleRect(rect: Rect, scaleFactor: Float): Rect {
         return Rect(
@@ -147,6 +186,12 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
         // PreviewView is in FILL_START mode. So we need to scale up the bounding box to match with
         // the size that the captured images will be displayed.
         scaleFactor = max(width * 1f / imageWidth, height * 1f / imageHeight)
+        invalidate()
+    }
+
+    fun describeObject(detection: Detection, description: String) {
+        describedObject = detection
+        this.description = description
         invalidate()
     }
 

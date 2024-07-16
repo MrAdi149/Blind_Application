@@ -9,10 +9,7 @@
         android:id="@+id/view_finder"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:scaleType="fillStart">
-
-
-    </androidx.camera.view.PreviewView>
+        app:scaleType="fillStart" />
 
     <com.aditya.object.OverlayView
         android:id="@+id/overlay"
@@ -21,6 +18,7 @@
 
     <include
         android:id="@+id/bottom_sheet_layout"
+        android:visibility="gone"
         layout="@layout/info_bottom_sheet" />
 
     <Button

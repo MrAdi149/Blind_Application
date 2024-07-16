@@ -20,6 +20,10 @@ dependencyResolutionManagement {
 }
 
 include("androidTestAssets")
+include(":libuvc")
+include (":libnative")
+include (":libausbc")
+
 rootProject.name = "Object"
 include(":app")
  

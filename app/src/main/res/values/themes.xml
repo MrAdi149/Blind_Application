@@ -6,4 +6,10 @@
     </style>
 
     <style name="Theme.Object" parent="Base.Theme.Object" />
+
+    <style name="Camera2TopButtonStyle">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:padding">8dp</item>
+    </style>
 </resources>

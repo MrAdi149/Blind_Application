@@ -14,10 +14,6 @@ import com.aditya.`object`.R
 
 private val PERMISSIONS_REQUIRED = arrayOf(Manifest.permission.CAMERA)
 
-/**
- * The sole purpose of this fragment is to request permissions and, once granted, display the
- * camera fragment to the user.
- */
 class PermissionFragment : Fragment() {
 
     private val requestPermissionLauncher =
@@ -49,7 +45,7 @@ class PermissionFragment : Fragment() {
 
     private fun navigateToCamera() {
         lifecycleScope.launchWhenStarted {
-            Navigation.findNavController(requireActivity(), R.id.fragment_container).navigate(
+            Navigation.findNavController(requireActivity(), R.id.nav_host_fragment).navigate(
                 PermissionFragmentDirections.actionPermissionsToCamera())
         }
     }

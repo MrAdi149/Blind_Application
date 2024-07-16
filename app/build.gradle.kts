@@ -11,12 +11,12 @@ apply(plugin= "androidx.navigation.safeargs")
 
 android {
     namespace = "com.aditya.object"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.aditya.object"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -35,6 +35,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        dataBinding = true
     }
 //    androidResources {
 //        noCompress = 'tflite'
@@ -56,9 +57,22 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(project(":libuvc"))
+    implementation(project(":libausbc"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+//    implementation (project(":libausbc"))
+    implementation(project(":libuvc"))
+//    implementation(project(":libausbc"))
+//
+//    implementation ("org.jitsi.react:jitsi-meet-sdk:3.10.2")
+    implementation("androidx.databinding:databinding-runtime:7.0.0")
+
+    implementation ("com.afollestad.material-dialogs:core:3.3.0")
+
+
     // App compat and UI things
     implementation ("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
     implementation ("com.google.android.material:material:1.12.0")
@@ -90,6 +104,12 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.0")
 
     implementation ("com.google.code.gson:gson:2.11.0")
+
+    implementation ("com.google.android.gms:play-services-vision:20.1.3")
+
+    implementation ("com.google.android.gms:play-services-maps:19.0.0")
+    implementation ("com.google.android.gms:play-services-location:21.3.0")
+
 }
 
 project.ext["ASSET_DIR"] = "$projectDir/src/main/assets/"
