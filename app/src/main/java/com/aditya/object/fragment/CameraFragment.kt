@@ -1,10 +1,13 @@
 package com.aditya.`object`.fragment
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.graphics.Bitmap
+import android.graphics.SurfaceTexture
+import android.hardware.usb.UsbDevice
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -15,19 +18,14 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.Toast
 import androidx.annotation.OptIn
-import androidx.camera.core.AspectRatio
-import androidx.camera.core.Camera
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ExperimentalGetImage
-import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.*
 import androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -37,36 +35,41 @@ import com.aditya.`object`.BitmapUtils
 import com.aditya.`object`.ObjectDetectorHelper
 import com.aditya.`object`.R
 import com.aditya.`object`.databinding.FragmentCameraBinding
+import com.jiangdg.usb.USBMonitor
+import com.jiangdg.uvc.UVCCamera
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import java.util.Locale
+import org.tensorflow.lite.task.vision.detector.Detection
+import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import org.tensorflow.lite.task.vision.detector.Detection
-import java.util.LinkedList
 
 class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     private val TAG = "ObjectDetection"
 
     private var _fragmentCameraBinding: FragmentCameraBinding? = null
+    private val fragmentCameraBinding get() = _fragmentCameraBinding!!
+
     private var isObjectDetection: Boolean = false
     private var isTextRecognition: Boolean = false
     private var textRecognizer: TextRecognizer? = null
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var speechRecognizerIntent: Intent
     private var isListening: Boolean = false
+    private var isWaitingForCommand: Boolean = false
+    private var describedDetection: Detection? = null
+
+    private lateinit var usbMonitor: USBMonitor
+    private lateinit var uvcCamera: UVCCamera
+    private var isUsingUsbCamera: Boolean = false
 
     private val RECORD_REQUEST_CODE = 101
     private val RESTART_DELAY_MS = 1000L  // 1 second delay before restarting speech recognizer
 
-    private val fragmentCameraBinding
-        get() = _fragmentCameraBinding!!
-
     private lateinit var objectDetectorHelper: ObjectDetectorHelper
-    private lateinit var bitmapBuffer: Bitmap
     private var preview: Preview? = null
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
@@ -88,7 +91,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         super.onResume()
 
         if (!PermissionFragment.hasPermissions(requireContext())) {
-            Navigation.findNavController(requireActivity(), R.id.fragment_container)
+            Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
                 .navigate(CameraFragmentDirections.actionCameraToPermissions())
         } else {
             startListening()
@@ -112,12 +115,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         initButtons()
 
         return fragmentCameraBinding.root
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putBoolean(KEY_IS_OBJECT_DETECTION, isObjectDetection)
-        outState.putBoolean(KEY_IS_TEXT_RECOGNITION, isTextRecognition)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -153,10 +150,10 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     }
 
     private fun checkPermission() {
-        if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
                 requireActivity(),
-                arrayOf(android.Manifest.permission.RECORD_AUDIO),
+                arrayOf(Manifest.permission.RECORD_AUDIO),
                 RECORD_REQUEST_CODE
             )
         } else {
@@ -166,9 +163,10 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     private fun setupSpeechRecognizer() {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
-        speechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-        speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        speechRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+        speechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+        }
 
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
@@ -186,12 +184,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             }
 
             override fun onError(error: Int) {
-                Log.e(TAG, "Speech Recognition Error: $error")
                 isListening = false
-                handleSpeechRecognizerError(error)
-                if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
-                    speechRecognizer.stopListening()
-                }
                 restartSpeechRecognizer()
             }
 
@@ -203,7 +196,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                         handleVoiceCommand(command)
                     }
                 }
-                // Restart listening after processing results
                 restartSpeechRecognizer()
             }
 
@@ -211,24 +203,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
-    }
-
-    private fun handleSpeechRecognizerError(error: Int) {
-        val errorMessage = when (error) {
-            SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
-            SpeechRecognizer.ERROR_CLIENT -> "Client side error"
-            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
-            SpeechRecognizer.ERROR_NETWORK -> "Network error"
-            SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
-            SpeechRecognizer.ERROR_NO_MATCH -> ""
-            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
-            SpeechRecognizer.ERROR_SERVER -> "Server error"
-            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input"
-            else -> "Unknown error"
-        }
-        if (errorMessage.isNotEmpty()) {
-            Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show()
-        }
     }
 
     private fun restartSpeechRecognizer() {
@@ -241,10 +215,9 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     }
 
     private fun startListening() {
-        if (isListening) {
-            speechRecognizer.stopListening()
+        if (!isListening) {
+            speechRecognizer.startListening(speechRecognizerIntent)
         }
-        speechRecognizer.startListening(speechRecognizerIntent)
     }
 
     private fun stopListening() {
@@ -258,6 +231,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             "start" -> {
                 isObjectDetection = true
                 isTextRecognition = false
+                describedDetection = null
                 fragmentCameraBinding.overlay.clear()
                 Toast.makeText(requireContext(), "Object Detection Started", Toast.LENGTH_SHORT).show()
             }
@@ -276,13 +250,34 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             "read" -> {
                 isObjectDetection = false
                 isTextRecognition = true
+                describedDetection = null
                 fragmentCameraBinding.overlay.clear()
                 Toast.makeText(requireContext(), "Text Recognition Started", Toast.LENGTH_SHORT).show()
+            }
+            "describe" -> {
+                describedDetection?.let { detection ->
+                    val description = getDescriptionForDetection(detection)
+                    fragmentCameraBinding.overlay.describeObject(detection, description)
+                    textToSpeech.speak(description, TextToSpeech.QUEUE_FLUSH, null, null)
+                } ?: run {
+                    Toast.makeText(requireContext(), "No object detected to describe.", Toast.LENGTH_SHORT).show()
+                }
             }
             else -> {
                 Toast.makeText(requireContext(), "Unknown Command: $command", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun getDescriptionForDetection(detection: Detection): String {
+        // Simulate a description based on detection properties. Adjust as needed.
+        val label = detection.categories[0].label
+        val score = detection.categories[0].score
+        val company = "Company X" // Replace with actual company info if available
+        val size = "medium" // Replace with actual size info if available
+        val color = "red" // Replace with actual color info if available
+
+        return "$label detected with $score confidence. Company: $company, Size: $size, Color: $color."
     }
 
     private fun initButtons() {
@@ -296,6 +291,10 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
         fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
             handleVoiceCommand("read")
+        }
+
+        fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
+            handleVoiceCommand("describe")
         }
     }
 
@@ -446,6 +445,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
     }
 
+
     private fun detectObjects(image: ImageProxy) {
         // Convert YUV_420_888 ImageProxy to Bitmap
         val bitmap = BitmapUtils.imageProxyToBitmap(image)
@@ -518,6 +518,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         cameraExecutor.shutdown()
         _fragmentCameraBinding = null
     }
+
 
     override fun onResults(
         results: MutableList<Detection>?,
