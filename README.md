@@ -1,4 +1,4 @@
-<h1 align="center">Object Detection and Text Recognition App</h1>
+<h1 align="center">Application for blind person</h1>
 
 <h2>This Android application leverages TensorFlow Lite and ML Kit to perform real-time object detection and text recognition using the device's camera. It supports both CPU, GPU, and NNAPI delegates for improved performance on compatible hardware.</h2>
 
