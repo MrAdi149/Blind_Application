@@ -21,6 +21,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import androidx.core.view.children
 import androidx.core.widget.TextViewCompat
+import androidx.lifecycle.lifecycleScope
 import com.aditya.`object`.ObjectDetectorHelper
 import com.aditya.`object`.R
 import com.aditya.`object`.databinding.FragmentUsbBinding
@@ -40,6 +41,7 @@ import com.jiangdg.ausbc.utils.*
 import com.jiangdg.ausbc.utils.bus.BusKey
 import com.jiangdg.ausbc.utils.bus.EventBus
 import com.jiangdg.ausbc.widget.*
+import kotlinx.coroutines.*
 import org.tensorflow.lite.task.vision.detector.Detection
 import java.util.Timer
 import java.util.TimerTask
@@ -88,6 +90,9 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         )
     }
 
+    private lateinit var mViewBinding: FragmentUsbBinding
+    private var mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC
+
     private val mMainHandler: Handler by lazy {
         Handler(Looper.getMainLooper()) {
             when (it.what) {
@@ -111,18 +116,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
             true
         }
     }
-
-    private val detectionHandler = Handler(Looper.getMainLooper())
-    private val detectionRunnable = object : Runnable {
-        override fun run() {
-            captureFrameForDetection()
-            detectionHandler.postDelayed(this, DETECTION_INTERVAL_MS)
-        }
-    }
-
-    private var mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC
-
-    private lateinit var mViewBinding: FragmentUsbBinding
 
     override fun initView() {
         super.initView()
@@ -158,8 +151,8 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                             mEffectDataList.find {
                                 it.id == filterId
                             }?.also {
-                                if (it.effect != null) {
-                                    addRenderEffect(it.effect!!)
+                                it.effect?.let { effect ->
+                                    addRenderEffect(effect)
                                 }
                             }
                         }
@@ -172,8 +165,8 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                             mEffectDataList.find {
                                 it.id == animId
                             }?.also {
-                                if (it.effect != null) {
-                                    addRenderEffect(it.effect!!)
+                                it.effect?.let { effect ->
+                                    addRenderEffect(effect)
                                 }
                             }
                         }
@@ -201,34 +194,35 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     }
 
     private fun startObjectDetection() {
-        detectionHandler.post(detectionRunnable)
-    }
-
-    private fun stopObjectDetection() {
-        detectionHandler.removeCallbacks(detectionRunnable)
-    }
-
-    private fun captureFrameForDetection() {
-        val currentCamera = getCurrentCamera() as? CameraUVC ?: return
-        currentCamera.captureImage(object : ICaptureCallBack {
-            override fun onBegin() {}
-
-            override fun onError(error: String?) {
-                ToastUtils.show("Error capturing frame: $error")
+        lifecycleScope.launch {
+            while (true) {
+                captureFrameForDetection()
+                delay(DETECTION_INTERVAL_MS)
             }
+        }
+    }
 
-            override fun onComplete(path: String?) {
-                // Load the captured image as Bitmap
-                path?.let {
-                    val bitmap = BitmapFactory.decodeFile(it)
-                    objectDetectorHelper.detect(bitmap, 0)
+    private suspend fun captureFrameForDetection() {
+        withContext(Dispatchers.IO) {
+            val currentCamera = getCurrentCamera() as? CameraUVC ?: return@withContext
+            currentCamera.captureImage(object : ICaptureCallBack {
+                override fun onBegin() {}
+
+                override fun onError(error: String?) {
+                    ToastUtils.show("Error capturing frame: $error")
                 }
-            }
-        })
+
+                override fun onComplete(path: String?) {
+                    path?.let {
+                        val bitmap = BitmapFactory.decodeFile(it)
+                        objectDetectorHelper.detect(bitmap, 0)
+                    }
+                }
+            })
+        }
     }
 
     private fun updateOverlayView(detections: List<Detection>, imageHeight: Int, imageWidth: Int) {
-        // Assuming you have an OverlayView to display the results
         mViewBinding.overlay.setResults(detections, imageHeight, imageWidth)
     }
 
@@ -429,6 +423,10 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         super.onDestroyView()
         mMoreMenu?.dismiss()
         stopObjectDetection()  // Stop object detection when the view is destroyed
+    }
+
+    private fun stopObjectDetection() {
+        lifecycleScope.coroutineContext.cancelChildren()  // Cancels all child coroutines
     }
 
     override fun onClick(v: View?) {
@@ -642,41 +640,33 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     }
 
     private fun startMediaTimer() {
-        val pushTask: TimerTask = object : TimerTask() {
-            override fun run() {
-                //秒
-                mRecSeconds++
-                //分
-                if (mRecSeconds >= 60) {
-                    mRecSeconds = 0
-                    mRecMinute++
-                }
-                //时
-                if (mRecMinute >= 60) {
-                    mRecMinute = 0
-                    mRecHours++
-                    if (mRecHours >= 24) {
-                        mRecHours = 0
-                        mRecMinute = 0
+        mRecTimer?.cancel()
+        mRecTimer = Timer().apply {
+            schedule(object : TimerTask() {
+                override fun run() {
+                    mRecSeconds++
+                    if (mRecSeconds >= 60) {
                         mRecSeconds = 0
+                        mRecMinute++
                     }
+                    if (mRecMinute >= 60) {
+                        mRecMinute = 0
+                        mRecHours++
+                        if (mRecHours >= 24) {
+                            mRecHours = 0
+                            mRecMinute = 0
+                            mRecSeconds = 0
+                        }
+                    }
+                    mMainHandler.sendEmptyMessage(WHAT_START_TIMER)
                 }
-                mMainHandler.sendEmptyMessage(WHAT_START_TIMER)
-            }
+            }, 1000, 1000)
         }
-        if (mRecTimer != null) {
-            stopMediaTimer()
-        }
-        mRecTimer = Timer()
-        //执行schedule后1s后运行run，之后每隔1s运行run
-        mRecTimer?.schedule(pushTask, 1000, 1000)
     }
 
     private fun stopMediaTimer() {
-        if (mRecTimer != null) {
-            mRecTimer?.cancel()
-            mRecTimer = null
-        }
+        mRecTimer?.cancel()
+        mRecTimer = null
         mRecHours = 0
         mRecMinute = 0
         mRecSeconds = 0
@@ -684,33 +674,15 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     }
 
     private fun calculateTime(seconds: Int, minute: Int, hour: Int? = null): String {
-        val mBuilder = StringBuilder()
-        //时
-        if (hour != null) {
-            if (hour < 10) {
-                mBuilder.append("0")
-                mBuilder.append(hour)
-            } else {
-                mBuilder.append(hour)
+        return buildString {
+            if (hour != null) {
+                append(if (hour < 10) "0$hour" else hour.toString())
+                append(":")
             }
-            mBuilder.append(":")
+            append(if (minute < 10) "0$minute" else minute.toString())
+            append(":")
+            append(if (seconds < 10) "0$seconds" else seconds.toString())
         }
-        // 分
-        if (minute < 10) {
-            mBuilder.append("0")
-            mBuilder.append(minute)
-        } else {
-            mBuilder.append(minute)
-        }
-        //秒
-        mBuilder.append(":")
-        if (seconds < 10) {
-            mBuilder.append("0")
-            mBuilder.append(seconds)
-        } else {
-            mBuilder.append(seconds)
-        }
-        return mBuilder.toString()
     }
 
     companion object {
