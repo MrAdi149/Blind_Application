@@ -49,6 +49,7 @@ import com.jiangdg.ausbc.utils.bus.EventBus
 import com.jiangdg.ausbc.widget.*
 import kotlinx.coroutines.*
 import org.tensorflow.lite.task.vision.detector.Detection
+import java.io.File
 import java.util.*
 
 class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnViewClickListener {
@@ -262,11 +263,53 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
                 override fun onComplete(path: String?) {
                     path?.let {
+                        // Capture image as a Bitmap without saving
                         val bitmap = BitmapFactory.decodeFile(it)
+
+                        // Process the bitmap with your object detector
                         objectDetectorHelper.detect(bitmap, 0)
+
+                        // Schedule deletion after 10 seconds
+                        scheduleFileDeletion(it, 10_000L)  // 10 seconds in milliseconds
                     }
                 }
             })
+        }
+    }
+
+    private fun scheduleFileDeletion(filePath: String, delayMillis: Long) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            val file = File(filePath)
+            if (file.exists()) {
+                // Delete the file
+                val deleted = file.delete()
+                if (deleted) {
+                    // Update the gallery to reflect the deletion
+                    removeImageFromGallery(filePath)
+                    Log.d(TAG, "File deleted successfully: $filePath")
+                } else {
+                    Log.e(TAG, "Failed to delete file: $filePath")
+                }
+            }
+        }, delayMillis)
+    }
+
+    private fun removeImageFromGallery(filePath: String) {
+        // ContentResolver to interact with the MediaStore
+        val contentResolver = requireContext().contentResolver
+
+        // Find the file's URI using its path
+        val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        val selection = "${MediaStore.Images.Media.DATA} = ?"
+        val selectionArgs = arrayOf(filePath)
+
+        // Delete the entry in the MediaStore
+        val rowsDeleted = contentResolver.delete(uri, selection, selectionArgs)
+
+        if (rowsDeleted > 0) {
+            Log.d(TAG, "MediaStore updated successfully for file: $filePath")
+        } else {
+            Log.e(TAG, "Failed to update MediaStore for file: $filePath")
         }
     }
 
