@@ -78,13 +78,16 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
                 .navigate(CameraFragmentDirections.actionCameraToPermissions())
         } else {
-            startListening()
+            if (!isListening) {
+                startListening()
+            }
         }
     }
 
     override fun onPause() {
         super.onPause()
         stopListening()
+        speechRecognizer.destroy()
     }
 
     override fun onCreateView(
@@ -196,6 +199,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     private fun stopListening() {
         if (isListening) {
+            isListening = false
             speechRecognizer.stopListening()
         }
     }
@@ -298,6 +302,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 objectDetectorHelper.numThreads--
                 updateControlsUi()
             }
+
         }
         fragmentCameraBinding.bottomSheetLayout.threadsPlus.setOnClickListener {
             if (objectDetectorHelper.numThreads < 4) {
@@ -442,11 +447,13 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     override fun onDestroyView() {
         super.onDestroyView()
         textRecognizer?.close()
-        speechRecognizer.stopListening()
+
         textToSpeech.shutdown()
         cameraExecutor.shutdown()
         stopObjectDetection()
         _fragmentCameraBinding = null
+
+        speechRecognizer.destroy()
     }
 
     private fun stopObjectDetection() {

@@ -5,13 +5,14 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.hardware.usb.UsbDevice
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
+import android.os.*
 import android.provider.MediaStore
+import android.speech.tts.TextToSpeech
+import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -19,6 +20,7 @@ import android.view.ViewGroup
 import android.widget.PopupWindow
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.view.children
 import androidx.core.widget.TextViewCompat
 import androidx.lifecycle.lifecycleScope
@@ -27,6 +29,10 @@ import com.aditya.`object`.R
 import com.aditya.`object`.databinding.FragmentUsbBinding
 import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.list.listItemsSingleChoice
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.jiangdg.ausbc.MultiCameraClient
 import com.jiangdg.ausbc.base.CameraFragment
 import com.jiangdg.ausbc.callback.ICameraStateCallBack
@@ -43,8 +49,7 @@ import com.jiangdg.ausbc.utils.bus.EventBus
 import com.jiangdg.ausbc.widget.*
 import kotlinx.coroutines.*
 import org.tensorflow.lite.task.vision.detector.Detection
-import java.util.Timer
-import java.util.TimerTask
+import java.util.*
 
 class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnViewClickListener {
     private var mMoreMenu: PopupWindow? = null
@@ -55,6 +60,10 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     private var mRecMinute = 0
     private var mRecHours = 0
     private lateinit var objectDetectorHelper: ObjectDetectorHelper
+    private lateinit var textToSpeech: TextToSpeech
+    private lateinit var textRecognizer: TextRecognizer // Text recognizer instance
+    private var isObjectDetectionActive: Boolean = false
+    private var isTextRecognitionActive: Boolean = false // Flag for text recognition
 
     private val mCameraModeTabMap = mapOf(
         CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC to R.id.takePictureModeTv,
@@ -117,8 +126,23 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         }
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // Initialize TextToSpeech here
+        textToSpeech = TextToSpeech(requireContext()) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech.language = Locale.US
+            }
+        }
+
+        // Initialize TextRecognizer here
+        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
+    }
+
     override fun initView() {
         super.initView()
+
         mViewBinding.lensFacingBtn1.setOnClickListener(this)
         mViewBinding.effectsBtn.setOnClickListener(this)
         mViewBinding.cameraTypeBtn.setOnClickListener(this)
@@ -128,6 +152,17 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         mViewBinding.albumPreviewIv.setOnClickListener(this)
         mViewBinding.captureBtn.setOnViewClickListener(this)
         mViewBinding.albumPreviewIv.setTheme(PreviewImageView.Theme.DARK)
+
+        // Add click listener for text detection start
+        mViewBinding.btnStartTextDetection.setOnClickListener {
+            startTextDetection()
+        }
+
+        // Add click listener for stopping detection
+        mViewBinding.btnStopTextDetection.setOnClickListener {
+            stopAllDetections()
+        }
+
         switchLayoutClick()
     }
 
@@ -187,23 +222,36 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
                 override fun onResults(results: MutableList<Detection>?, inferenceTime: Long, imageHeight: Int, imageWidth: Int) {
                     // Handle detection results
-                    results?.let { updateOverlayView(it, imageHeight, imageWidth) }
+                    results?.let { detections ->
+                        updateOverlayView(detections, imageHeight, imageWidth)
+                        // Speak the name of the first detected object, if available
+                        if (detections.isNotEmpty()) {
+                            val objectName = detections.first().categories.firstOrNull()?.label
+                            objectName?.let {
+                                textToSpeech.speak(it, TextToSpeech.QUEUE_FLUSH, null, null)
+                            }
+                        }
+                    }
                 }
             }
         )
     }
 
     private fun startObjectDetection() {
-        lifecycleScope.launch {
-            while (true) {
-                captureFrameForDetection()
-                delay(DETECTION_INTERVAL_MS)
+        if (!isObjectDetectionActive) {
+            isObjectDetectionActive = true
+            // Start the detection loop or process
+            lifecycleScope.launch(Dispatchers.Default) {
+                while (isObjectDetectionActive) {
+                    captureFrameForDetection()
+                    delay(DETECTION_INTERVAL_MS) // Adjust based on your detection frequency needs
+                }
             }
         }
     }
 
     private suspend fun captureFrameForDetection() {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             val currentCamera = getCurrentCamera() as? CameraUVC ?: return@withContext
             currentCamera.captureImage(object : ICaptureCallBack {
                 override fun onBegin() {}
@@ -224,6 +272,84 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
     private fun updateOverlayView(detections: List<Detection>, imageHeight: Int, imageWidth: Int) {
         mViewBinding.overlay.setResults(detections, imageHeight, imageWidth)
+    }
+
+    private fun startTextDetection() {
+        if (!isTextRecognitionActive) {
+            stopObjectDetection() // Stop object detection when starting text detection
+            isTextRecognitionActive = true
+            Toast.makeText(requireContext(), "Text Detection Started", Toast.LENGTH_SHORT).show()
+
+            lifecycleScope.launch(Dispatchers.Default) {
+                while (isTextRecognitionActive) {
+                    captureFrameForTextDetection()
+                    delay(DETECTION_INTERVAL_MS) // Adjust detection interval as needed
+                }
+            }
+        }
+    }
+
+    private suspend fun captureFrameForTextDetection() {
+        withContext(Dispatchers.Default) {
+            val currentCamera = getCurrentCamera() as? CameraUVC ?: return@withContext
+            currentCamera.captureImage(object : ICaptureCallBack {
+                override fun onBegin() {}
+
+                override fun onError(error: String?) {
+                    ToastUtils.show("Error capturing frame: $error")
+                }
+
+                override fun onComplete(path: String?) {
+                    path?.let {
+                        val bitmap = BitmapFactory.decodeFile(it)
+                        detectText(bitmap)
+                    }
+                }
+            })
+        }
+    }
+
+    private fun detectText(bitmap: Bitmap) {
+        val inputImage = InputImage.fromBitmap(bitmap, 0)
+
+        textRecognizer.process(inputImage)
+            .addOnSuccessListener { visionText ->
+                val detectedText = visionText.text
+                if (detectedText.isNotEmpty()) {
+                    readDetectedText(detectedText)
+                    updateOverlayViewForText(visionText.textBlocks, bitmap.height, bitmap.width)
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Text Recognition Error: $e")
+            }
+    }
+
+    private fun readDetectedText(text: String) {
+        if (text.isEmpty() || textToSpeech.isSpeaking) {
+            return
+        }
+
+        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+
+    private fun updateOverlayViewForText(textBlocks: List<com.google.mlkit.vision.text.Text.TextBlock>, imageHeight: Int, imageWidth: Int) {
+        // Implement your logic to update the overlay view with detected text
+        mViewBinding.overlay.setResults(
+            emptyList(), imageHeight, imageWidth, textBlocks
+        )
+    }
+
+    private fun stopAllDetections() {
+        stopObjectDetection()
+        stopTextDetection()
+        Toast.makeText(requireContext(), "Detection Stopped", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun stopTextDetection() {
+        isTextRecognitionActive = false
+        // Cancel ongoing detection tasks
+        lifecycleScope.coroutineContext.cancelChildren()
     }
 
     override fun onCameraState(
@@ -248,7 +374,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         mViewBinding.uvcLogoIv.visibility = View.VISIBLE
         mViewBinding.frameRateTv.visibility = View.GONE
         ToastUtils.show("camera closed success")
-        stopObjectDetection()  // Stop object detection when camera is closed
+        stopAllDetections()  // Stop all detections when camera is closed
     }
 
     private fun handleCameraOpened() {
@@ -422,11 +548,14 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     override fun onDestroyView() {
         super.onDestroyView()
         mMoreMenu?.dismiss()
-        stopObjectDetection()  // Stop object detection when the view is destroyed
+        stopAllDetections()  // Stop all detections when the view is destroyed
     }
 
     private fun stopObjectDetection() {
-        lifecycleScope.coroutineContext.cancelChildren()  // Cancels all child coroutines
+        if (isObjectDetectionActive) {
+            isObjectDetectionActive = false
+            lifecycleScope.coroutineContext.cancelChildren()  // Cancels all child coroutines
+        }
     }
 
     override fun onClick(v: View?) {
@@ -560,7 +689,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     }
 
     private fun showRecentMedia(isImage: Boolean? = null) {
-        // Removed logic related to ILoader, MMKVUtils, and ImageLoaders
+        // Implement logic to show recent media if needed
     }
 
     private fun updateCameraModeSwitchUI() {
@@ -664,6 +793,13 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         }
     }
 
+    override fun onDestroy() {
+        textToSpeech.stop()
+        textToSpeech.shutdown()
+        textRecognizer.close()
+        super.onDestroy()
+    }
+
     private fun stopMediaTimer() {
         mRecTimer?.cancel()
         mRecTimer = null
@@ -689,6 +825,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         private const val TAG = "UsbFragment"
         private const val WHAT_START_TIMER = 0x00
         private const val WHAT_STOP_TIMER = 0x01
-        private const val DETECTION_INTERVAL_MS = 1000L // Detection interval in milliseconds
+        private const val DETECTION_INTERVAL_MS = 2000L // Detection interval in milliseconds
+        private const val KEY_IS_OBJECT_DETECTION = "KEY_IS_OBJECT_DETECTION"
     }
 }

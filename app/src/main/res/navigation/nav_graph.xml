@@ -36,5 +36,11 @@
         android:id="@+id/usb_fragment"
         android:name="com.aditya.object.fragment.UsbFragment"
         android:label="UsbFragment" >
+
+        <action
+            android:id="@+id/action_usb_to_permissions"
+            app:destination="@id/permissions_fragment"
+            app:popUpTo="@id/usb_fragment"
+            app:popUpToInclusive="true"/>
     </fragment>
 </navigation>
