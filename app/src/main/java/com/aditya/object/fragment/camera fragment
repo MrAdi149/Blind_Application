@@ -1207,6 +1207,8 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                     path?.let {
                         val bitmap = BitmapFactory.decodeFile(it)
                         detectText(bitmap)
+
+                        scheduleFileDeletion(it, 20_000L)
                     }
                 }
             })
