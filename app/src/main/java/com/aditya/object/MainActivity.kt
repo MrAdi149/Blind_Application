@@ -15,6 +15,7 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.navigation.findNavController
@@ -125,12 +126,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onStart() {
         super.onStart()
         val filter = IntentFilter(ACTION_USB_PERMISSION)
-        registerReceiver(usbPermissionActionReceiver, filter)
+        registerReceiver(usbPermissionActionReceiver, filter, RECEIVER_NOT_EXPORTED)
     }
-
     override fun onStop() {
         super.onStop()
         unregisterReceiver(usbPermissionActionReceiver)
