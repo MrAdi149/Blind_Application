@@ -16,6 +16,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.usb.accessory" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
 
     <application

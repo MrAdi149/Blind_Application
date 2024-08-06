@@ -32,13 +32,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@+id/modeSwitchLayout"/>
 
-    <ProgressBar
-        android:id="@+id/listeningIndicator"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        android:layout_gravity="center" />
-
     <!-- Overlay for Camera -->
     <com.aditya.object.OverlayView
         android:id="@+id/overlay"
@@ -97,6 +90,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
+            android:visibility="gone"
             android:text="Start Detection"
             android:backgroundTint="?attr/colorPrimary"
             android:textColor="@android:color/white"
@@ -108,19 +102,13 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
+            android:visibility="gone"
             android:text="Stop Detection"
             android:backgroundTint="?attr/colorAccent"
             android:textColor="@android:color/white"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <Button
-        android:id="@+id/btnStartObjectDetection"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Start Object Detection"
-        android:visibility="gone" />
 
     <!-- Mode Switch Layout -->
     <androidx.constraintlayout.widget.ConstraintLayout
