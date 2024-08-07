@@ -25,6 +25,7 @@ import com.jiangdg.uvc.UVCCamera
 
 class MainActivity : AppCompatActivity() {
 
+
     private lateinit var activityMainBinding: ActivityMainBinding
     private lateinit var usbMonitor: USBMonitor
     private var uvcCamera: UVCCamera? = null

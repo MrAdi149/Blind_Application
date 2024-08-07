@@ -397,6 +397,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
     }
 
+
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     private fun detectText(image: ImageProxy) {
         val mediaImage = image.image ?: return

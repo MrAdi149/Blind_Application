@@ -22,6 +22,7 @@ class ObjectDetectorHelper(
     val objectDetectorListener: DetectorListener?
 ) {
 
+
     private var objectDetector: ObjectDetector? = null
 
     init {

@@ -164,7 +164,6 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
         }
     }
 
-
     private fun scaleRect(rect: Rect, scaleFactor: Float): Rect {
         return Rect(
             (rect.left * scaleFactor).toInt(),

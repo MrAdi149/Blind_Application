@@ -155,6 +155,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         }
     }
 
+
     private fun restartSpeechRecognizer() {
 
         lifecycleScope.launch {
