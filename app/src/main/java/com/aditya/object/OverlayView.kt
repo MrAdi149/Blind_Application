@@ -18,7 +18,7 @@ import com.google.mlkit.vision.text.Text
 
 class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs) {
 
-    private var results: List<Detection> = LinkedList()
+    private var results: List<DetectionResult> = LinkedList()
     private var textBlocks: List<Text.TextBlock>? = null
     private var objectBoxPaint = Paint()
     private var objectTextBackgroundPaint = Paint()
@@ -102,24 +102,21 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
         Log.d("OverlayView", "onDraw called")
 
         // Draw detected objects
-        for (result in results) {
-            val boundingBox = result.boundingBox
+        for (resultWithDistance in results) {
+            val detection = resultWithDistance.detection
+            val distance = resultWithDistance.distance
+            val boundingBox = detection.boundingBox
 
             val top = boundingBox.top * scaleFactor
             val bottom = boundingBox.bottom * scaleFactor
             val left = boundingBox.left * scaleFactor
             val right = boundingBox.right * scaleFactor
 
-            Log.d("OverlayView", "Drawing object bounding box at: $left, $top, $right, $bottom")
-
-            // Draw bounding box around detected objects with rounded corners
             val drawableRect = RectF(left, top, right, bottom)
             canvas.drawRoundRect(drawableRect, 32f, 32f, objectBoxPaint)
 
-            // Create text to display alongside detected objects
-            val drawableText = "${result.categories[0].label} ${String.format("%.2f", result.categories[0].score)}"
+            val drawableText = "${detection.categories[0].label} (${String.format("%.2f", distance)}m)"
 
-            // Draw rect behind display text with padding
             objectTextBackgroundPaint.getTextBounds(drawableText, 0, drawableText.length, bounds)
             val textWidth = bounds.width()
             val textHeight = bounds.height()
@@ -130,21 +127,7 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
                 objectTextBackgroundPaint
             )
 
-            // Draw text for detected object
             canvas.drawText(drawableText, left + BOUNDING_RECT_TEXT_PADDING, top + textHeight + BOUNDING_RECT_TEXT_PADDING, objectTextPaint)
-
-            // Draw description if the described object matches the current result
-            if (describedObject == result && description != null) {
-                val descriptionWidth = descriptionTextPaint.measureText(description)
-                val descriptionHeight = descriptionTextPaint.textSize
-                canvas.drawRoundRect(
-                    RectF(left, bottom + 16f, left + descriptionWidth + 32f, bottom + descriptionHeight + 48f),
-                    16f,
-                    16f,
-                    descriptionBoxPaint
-                )
-                canvas.drawText(description!!, left + 16f, bottom + descriptionHeight + 32f, descriptionTextPaint)
-            }
         }
 
         // Draw detected text blocks
@@ -174,7 +157,7 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
     }
 
     fun setResults(
-        detectionResults: List<Detection>,
+        detectionResults: List<DetectionResult>,
         imageHeight: Int,
         imageWidth: Int,
         textBlocks: List<Text.TextBlock>? = null
@@ -182,8 +165,6 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
         results = detectionResults
         this.textBlocks = textBlocks ?: LinkedList()
 
-        // PreviewView is in FILL_START mode. So we need to scale up the bounding box to match with
-        // the size that the captured images will be displayed.
         scaleFactor = max(width * 1f / imageWidth, height * 1f / imageHeight)
         invalidate()
     }

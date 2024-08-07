@@ -2,6 +2,7 @@ package com.aditya.`object`
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.RectF
 import android.os.SystemClock
 import android.util.Log
 import org.tensorflow.lite.gpu.CompatibilityList
@@ -21,7 +22,6 @@ class ObjectDetectorHelper(
     val context: Context,
     val objectDetectorListener: DetectorListener?
 ) {
-
 
     private var objectDetector: ObjectDetector? = null
 
@@ -97,7 +97,27 @@ class ObjectDetectorHelper(
             results,
             inferenceTime,
             tensorImage.height,
-            tensorImage.width)
+            tensorImage.width
+        )
+    }
+
+    fun estimateDistance(boundingBox: RectF, objectRealHeight: Float): Float {
+        // Camera specifications based on your USB camera
+        val focalLengthMm = 3.6f // Typical focal length in millimeters for such cameras
+        val sensorWidthMm = 5.37f // Sensor width in millimeters (for 1/2.7 inch sensor)
+        val imageWidthPx = 1920f // Image width in pixels
+
+        // Calculate focal length in pixels
+        val focalLengthPx = (imageWidthPx * focalLengthMm) / sensorWidthMm
+
+        // Calculate perceived height of the object in the image
+        val perceivedHeightPx = boundingBox.height()
+
+        // Calculate the distance using the pinhole camera model
+        val distance = (objectRealHeight * focalLengthPx) / perceivedHeightPx
+
+        // Return the calculated distance
+        return distance
     }
 
     interface DetectorListener {
