@@ -31,6 +31,7 @@ import android.widget.Toast
 import androidx.core.view.children
 import androidx.core.widget.TextViewCompat
 import androidx.lifecycle.lifecycleScope
+import com.aditya.`object`.DetectionResult
 import com.aditya.`object`.ObjectDetectorHelper
 import com.aditya.`object`.R
 import com.aditya.`object`.databinding.FragmentUsbBinding
@@ -80,21 +81,20 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     private var lastSpokenTime: Long = 0
     private val MIN_SPEECH_INTERVAL_MS = 2000L
     private val SPEECH_RECOGNITION_DELAY = 1000L
+    private var previewDataCallback: IPreviewDataCallBack? = null
 
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var speechRecognizerIntent: Intent
     private var isListening: Boolean = false
 
-
     private var previousDetections: MutableSet<String> = mutableSetOf()
-
+    private var detectedObjects: MutableMap<String, Float> = mutableMapOf()  // Map to store detected objects and their distances
 
     private val mCameraModeTabMap = mapOf(
         CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC to R.id.takePictureModeTv,
         CaptureMediaView.CaptureMode.MODE_CAPTURE_VIDEO to R.id.recordVideoModeTv,
         CaptureMediaView.CaptureMode.MODE_CAPTURE_AUDIO to R.id.recordAudioModeTv
     )
-
 
     private val ttsListener = TextToSpeech.OnUtteranceCompletedListener {
         if (speechQueue.isNotEmpty()) {
@@ -115,14 +115,12 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                 ToastUtils.showToast(requireContext(), "Listening for voice command...")
             }
 
-
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {
                 isListening = false
             }
-
 
             override fun onError(error: Int) {
                 Log.e(TAG, "Speech Recognition Error: $error")
@@ -157,7 +155,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
 
     private fun restartSpeechRecognizer() {
-
         lifecycleScope.launch {
             delay(SPEECH_RECOGNITION_DELAY)
             if (!isListening) {
@@ -167,6 +164,20 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     }
 
     private fun handleVoiceCommand(command: String) {
+        val words = command.split(" ")
+
+        if (words.size == 2 && words[1] == "distance") {
+            val objectName = words[0]
+            val distance = detectedObjects[objectName]
+            if (distance != null) {
+                speakDistance(objectName, distance)
+            } else {
+                Log.d(TAG, "Distance for $objectName not available.")
+                textToSpeech.speak("Distance for $objectName not available", TextToSpeech.QUEUE_FLUSH, null, objectName.hashCode().toString())
+            }
+            return
+        }
+
         when (command.toLowerCase(Locale.ROOT)) {
             "object" -> {
                 if (!isObjectDetectionActive) {
@@ -182,11 +193,18 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
             }
             "stop" -> {
                 stopAllDetections()
+                stopObjectDetection()
             }
             else -> {
                 Log.d(TAG, "Unknown command: $command")
             }
         }
+    }
+
+    private fun speakDistance(objectName: String, distance: Float) {
+        val message = String.format(Locale.US, "The distance to %s is approximately %.2f meters", objectName, distance)
+        Log.d(TAG, message)
+        textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, message.hashCode().toString())
     }
 
     private val mEffectDataList by lazy {
@@ -263,7 +281,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         startListeningForVoiceCommand()
     }
 
-
     private fun shouldSpeakNow(): Boolean {
         val currentTime = System.currentTimeMillis()
         return if (currentTime - lastSpokenTime >= MIN_SPEECH_INTERVAL_MS) {
@@ -274,13 +291,12 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         }
     }
 
-
     private fun startObjectDetection() {
         if (!isObjectDetectionActive) {
             isObjectDetectionActive = true
             Toast.makeText(requireContext(), "Object Detection Started", Toast.LENGTH_SHORT).show()
 
-            getCurrentCamera()?.addPreviewDataCallBack(object : IPreviewDataCallBack {
+            previewDataCallback = object : IPreviewDataCallBack {
                 override fun onPreviewData(
                     data: ByteArray?,
                     width: Int,
@@ -290,10 +306,11 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                     Log.d(TAG, "Preview Data Received: Width = $width, Height = $height, Format = $format")
                     processFrame(data, width, height, format)
                 }
-            })
+            }
+
+            getCurrentCamera()?.addPreviewDataCallBack(previewDataCallback!!)
         }
     }
-
 
     private fun processFrame(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat) {
         data ?: return
@@ -350,8 +367,12 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                         results?.let { detections ->
                             if (detections.isNotEmpty()) {
                                 Log.d(TAG, "Detections found: ${detections.size}")
-                                updateOverlayView(detections, imageHeight, imageWidth)
-                                handleDetections(detections)
+                                val detectionsWithDistance = detections.map { detection ->
+                                    val distance = objectDetectorHelper.estimateDistance(detection.boundingBox, 0.2f) // Update objectRealHeight as needed
+                                    DetectionResult(detection, distance)
+                                }
+                                updateOverlayView(detectionsWithDistance, imageHeight, imageWidth)
+                                handleDetections(detectionsWithDistance)
                             } else {
                                 Log.d(TAG, "No detections found.")
                             }
@@ -362,11 +383,18 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         }
     }
 
-    private fun handleDetections(detections: List<Detection>) {
+    private fun handleDetections(detections: List<DetectionResult>) {
         val currentDetections = mutableSetOf<String>()
-        for (detection in detections) {
-            detection.categories.firstOrNull()?.label?.let { currentDetections.add(it) }
+        detectedObjects.clear()  // Clear previous detections
+
+        for (result in detections) {
+            val detection = result.detection
+            detection.categories.firstOrNull()?.label?.let { label ->
+                currentDetections.add(label)
+                detectedObjects[label] = result.distance  // Store distance
+            }
         }
+
         val newDetections = currentDetections.subtract(previousDetections)
         for (detection in newDetections) {
             if (shouldSpeakNow()) {
@@ -381,7 +409,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         previousDetections = currentDetections
     }
 
-    private fun updateOverlayView(detections: List<Detection>, imageHeight: Int, imageWidth: Int) {
+    private fun updateOverlayView(detections: List<DetectionResult>, imageHeight: Int, imageWidth: Int) {
         mViewBinding.overlay.setResults(detections, imageHeight, imageWidth)
     }
 
@@ -781,13 +809,13 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     private fun stopObjectDetection() {
         if (isObjectDetectionActive) {
             isObjectDetectionActive = false
-            getCurrentCamera()?.removePreviewDataCallBack(object : IPreviewDataCallBack {
-                override fun onPreviewData(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat) {}
-            })
+            previewDataCallback?.let {
+                getCurrentCamera()?.removePreviewDataCallBack(it)
+                previewDataCallback = null
+            }
             Toast.makeText(requireContext(), "Object Detection Stopped", Toast.LENGTH_SHORT).show()
         }
     }
-
     override fun onClick(v: View?) {
         if (!isCameraOpened()) {
             ToastUtils.show("camera not worked!")

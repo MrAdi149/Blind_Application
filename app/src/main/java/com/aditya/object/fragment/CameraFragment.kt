@@ -26,6 +26,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
 import com.aditya.`object`.BitmapUtils
+import com.aditya.`object`.DetectionResult
 import com.aditya.`object`.ObjectDetectorHelper
 import com.aditya.`object`.R
 import com.aditya.`object`.databinding.FragmentCameraBinding
@@ -397,7 +398,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
     }
 
-
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     private fun detectText(image: ImageProxy) {
         val mediaImage = image.image ?: return
@@ -469,22 +469,31 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     ) {
         activity?.runOnUiThread {
             if (!results.isNullOrEmpty()) {
-                val currentDetectedObject = results[0].categories.firstOrNull()?.label
+                val detectionResults = results.map { detection ->
+                    // Assuming an object real height, you may need to adjust this
+                    val objectRealHeight = 0.2f  // meters, for example
+                    val distance = objectDetectorHelper.estimateDistance(detection.boundingBox, objectRealHeight)
+                    DetectionResult(detection, distance)
+                }
+
+                val currentDetectedObject = detectionResults.firstOrNull()?.detection?.categories?.firstOrNull()?.label
                 currentDetectedObject?.let { objectLabel ->
                     if (currentDetectedObject != previousDetectedObject) {
                         textToSpeech.speak(objectLabel, TextToSpeech.QUEUE_FLUSH, null, null)
                         previousDetectedObject = objectLabel
                     }
                 }
+
+                fragmentCameraBinding.overlay.setResults(
+                    detectionResults, imageHeight, imageWidth
+                )
+                fragmentCameraBinding.overlay.invalidate()
             }
             fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal.text =
                 String.format("%d ms", inferenceTime)
-            fragmentCameraBinding.overlay.setResults(
-                results ?: LinkedList(), imageHeight, imageWidth
-            )
-            fragmentCameraBinding.overlay.invalidate()
         }
     }
+
 
     override fun onError(error: String) {
         activity?.runOnUiThread {
