@@ -15,7 +15,6 @@
         android:scaleType="fitCenter"
         android:background="@android:color/black" />
 
-
     <!-- Overlay View for displaying detected objects -->
     <com.aditya.object.OverlayView
         android:id="@+id/overlay"
