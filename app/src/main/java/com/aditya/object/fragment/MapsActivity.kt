@@ -90,6 +90,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 
+
     private fun openGoogleMapsForNavigation(destinationLatLng: LatLng) {
         val gmmIntentUri = Uri.parse("google.navigation:q=${destinationLatLng.latitude},${destinationLatLng.longitude}&mode=w")
         val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)

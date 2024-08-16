@@ -880,6 +880,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         }
     }
 
+
     private fun showResolutionDialog() {
         mMoreMenu?.dismiss()
         getAllPreviewSizes().let { previewSizes ->
