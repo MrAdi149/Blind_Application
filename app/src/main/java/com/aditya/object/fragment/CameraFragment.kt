@@ -4,10 +4,8 @@ import android.Manifest
 import android.app.Activity
 import android.app.Activity.RESULT_OK
 import android.app.AlertDialog
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -40,7 +38,6 @@ import android.widget.Toast
 import androidx.camera.core.*
 import androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -96,7 +93,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private val REQUEST_LOCATION_PERMISSION = 102
 
     private lateinit var objectDetectorHelper: ObjectDetectorHelper
-    private lateinit var bitmapBuffer: Bitmap
     private var preview: Preview? = null
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
@@ -105,17 +101,12 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private lateinit var cameraExecutor: ExecutorService
     private var previousDetectedObject: String? = null
 
-    private lateinit var broadcastReceiver: BroadcastReceiver
-
-    // New variables for navigation
     private var isWaitingForDestination = false
     private var currentLatLng: LatLng? = null
 
-    // Face Recognition Fields
     private lateinit var detector: FaceDetector
     private lateinit var tfLite: Interpreter
     private var registered = HashMap<String, SimilarityClassifier.Recognition>()
-    private lateinit var previewView: PreviewView
     private var developerMode = false
     private var distance = 1.0f
     private var start = true
@@ -197,21 +188,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         initBottomSheetControls()
         initializeFaceRecognition()
     }
-
-    private fun initializeFaceRecognition() {
-        registered = readFromSP() // Load saved faces from shared preferences
-        try {
-            tfLite = Interpreter(loadModelFile(requireActivity(), modelFile))
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
-
-        val highAccuracyOpts = FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
-            .build()
-        detector = FaceDetection.getClient(highAccuracyOpts)
-    }
-
 
     private fun checkPermission() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -328,6 +304,15 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             "navigation" -> {
                 startNavigationSequence()
             }
+            "switch camera" -> {
+                switchCamera()
+            }
+            "add face" -> {
+                addFaceVoiceCommand()
+            }
+            "read face" -> {
+                startFaceRecognition()
+            }
             else -> {
                 if (isWaitingForDestination) {
                     handleDestinationInput(command)
@@ -336,77 +321,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 }
             }
         }
-    }
-
-    private fun startNavigationSequence() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(requireActivity(), arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_LOCATION_PERMISSION)
-        } else {
-            getCurrentLocation()
-        }
-    }
-
-    private fun getCurrentLocation() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                requireActivity(),
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                REQUEST_LOCATION_PERMISSION
-            )
-        } else {
-            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location ->
-                    if (location != null) {
-                        currentLatLng = LatLng(location.latitude, location.longitude)
-                        textToSpeech.speak("Please provide your destination", TextToSpeech.QUEUE_FLUSH, null, null)
-                        isWaitingForDestination = true
-                    } else {
-                        Toast.makeText(requireContext(), "Unable to get current location. Make sure location services are enabled.", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                .addOnFailureListener {
-                    Toast.makeText(requireContext(), "Failed to get current location", Toast.LENGTH_SHORT).show()
-                }
-        }
-    }
-
-
-    private fun handleDestinationInput(destination: String) {
-        val geocoder = Geocoder(requireContext(), Locale.getDefault())
-        try {
-            val addresses = geocoder.getFromLocationName(destination, 1)
-            if (addresses != null && addresses.isNotEmpty()) {
-                val destinationLatLng = LatLng(addresses[0].latitude, addresses[0].longitude)
-                openMapForNavigation(destinationLatLng)
-            } else {
-                Toast.makeText(requireContext(), "Destination not found.", Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: IOException) {
-            Toast.makeText(requireContext(), "Error finding destination: ${e.message}", Toast.LENGTH_SHORT).show()
-        } finally {
-            isWaitingForDestination = false
-        }
-    }
-
-    private fun openMapForNavigation(destinationLatLng: LatLng) {
-        val intent = Intent(requireContext(), MapsActivity::class.java).apply {
-            putExtra("CURRENT_LAT", currentLatLng?.latitude)
-            putExtra("CURRENT_LNG", currentLatLng?.longitude)
-            putExtra("DESTINATION_LAT", destinationLatLng.latitude)
-            putExtra("DESTINATION_LNG", destinationLatLng.longitude)
-        }
-        startActivityForResult(intent, NAVIGATION_REQUEST_CODE)
-    }
-
-    private fun getDescriptionForDetection(detection: Detection): String {
-        val label = detection.categories[0].label
-        val score = detection.categories[0].score
-        val company = "Company X"
-        val size = "medium"
-        val color = "red"
-
-        return "$label detected with $score confidence. Company: $company, Size: $size, Color: $color."
     }
 
     private fun initButtons() {
@@ -424,15 +338,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
 
         fragmentCameraBinding.button5.setOnClickListener {
-            camFace = if (camFace == CameraSelector.LENS_FACING_BACK) {
-                flipX = true
-                CameraSelector.LENS_FACING_FRONT
-            } else {
-                flipX = false
-                CameraSelector.LENS_FACING_BACK
-            }
-            cameraProvider?.unbindAll()
-            bindCameraUseCases()
+            switchCamera()
         }
 
         fragmentCameraBinding.button3.setOnClickListener {
@@ -460,6 +366,88 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
     }
 
+    private fun initializeFaceRecognition() {
+        registered = readFromSP()
+        try {
+            tfLite = Interpreter(loadModelFile(requireActivity(), modelFile))
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+
+        val highAccuracyOpts = FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+            .build()
+        detector = FaceDetection.getClient(highAccuracyOpts)
+    }
+
+    private fun addFaceVoiceCommand() {
+        fragmentCameraBinding.button3.performClick()
+        fragmentCameraBinding.imageButton.performClick()
+
+        textToSpeech.speak("Please say the name of the person after the beep", TextToSpeech.QUEUE_FLUSH, null, null)
+
+        setupSpeechRecognizerForName()
+    }
+
+    private fun setupSpeechRecognizerForName() {
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+
+            override fun onBeginningOfSpeech() {}
+
+            override fun onRmsChanged(rmsdB: Float) {}
+
+            override fun onBufferReceived(buffer: ByteArray?) {}
+
+            override fun onEndOfSpeech() {}
+
+            override fun onError(error: Int) {
+                Log.e(TAG, "Speech Recognition Error: $error")
+            }
+
+            override fun onResults(results: Bundle?) {
+                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
+                    if (matches.isNotEmpty()) {
+                        val name = matches[0]
+                        saveFace(name)
+                    }
+                }
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) {}
+
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+        speechRecognizer.startListening(speechRecognizerIntent)
+    }
+
+    private fun saveFace(name: String) {
+        val result = SimilarityClassifier.Recognition("0", "", -1f)
+        result.extra = embeddings
+        registered[name] = result
+        insertToSP(registered, 0)
+        start = true
+        Toast.makeText(requireContext(), "$name has been added", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun startFaceRecognition() {
+        start = true
+        Toast.makeText(requireContext(), "Face Recognition Started", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun switchCamera(){
+        camFace = if (camFace == CameraSelector.LENS_FACING_BACK) {
+            flipX = true
+            CameraSelector.LENS_FACING_FRONT
+        } else {
+            flipX = false
+            CameraSelector.LENS_FACING_BACK
+        }
+        cameraProvider?.unbindAll()
+        bindCameraUseCases()
+    }
+
     private fun addFace() {
         start = false
         val builder = AlertDialog.Builder(requireContext())
@@ -474,7 +462,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             result.extra = embeddings
 
             registered[input.text.toString()] = result
-            insertToSP(registered, 0) // Save faces immediately after adding
+            insertToSP(registered, 0)
             start = true
         }
         builder.setNegativeButton("Cancel") { dialog, _ ->
@@ -483,153 +471,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
 
         builder.show()
-    }
-
-
-    private fun initBottomSheetControls() {
-        fragmentCameraBinding.bottomSheetLayout.thresholdMinus.setOnClickListener {
-            if (objectDetectorHelper.threshold >= 0.1) {
-                objectDetectorHelper.threshold -= 0.1f
-                updateControlsUi()
-            }
-        }
-        fragmentCameraBinding.bottomSheetLayout.thresholdPlus.setOnClickListener {
-            if (objectDetectorHelper.threshold <= 0.8) {
-                objectDetectorHelper.threshold += 0.1f
-                updateControlsUi()
-            }
-        }
-        fragmentCameraBinding.bottomSheetLayout.maxResultsMinus.setOnClickListener {
-            if (objectDetectorHelper.maxResults > 1) {
-                objectDetectorHelper.maxResults--
-                updateControlsUi()
-            }
-        }
-        fragmentCameraBinding.bottomSheetLayout.maxResultsPlus.setOnClickListener {
-            if (objectDetectorHelper.maxResults < 5) {
-                objectDetectorHelper.maxResults++
-                updateControlsUi()
-            }
-        }
-        fragmentCameraBinding.bottomSheetLayout.threadsMinus.setOnClickListener {
-            if (objectDetectorHelper.numThreads > 1) {
-                objectDetectorHelper.numThreads--
-                updateControlsUi()
-            }
-
-        }
-        fragmentCameraBinding.bottomSheetLayout.threadsPlus.setOnClickListener {
-            if (objectDetectorHelper.numThreads < 4) {
-                objectDetectorHelper.numThreads++
-                updateControlsUi()
-            }
-        }
-        fragmentCameraBinding.bottomSheetLayout.spinnerDelegate.setSelection(0, false)
-        fragmentCameraBinding.bottomSheetLayout.spinnerDelegate.onItemSelectedListener =
-            object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
-                    objectDetectorHelper.currentDelegate = p2
-                    updateControlsUi()
-                }
-
-                override fun onNothingSelected(p0: AdapterView<*>?) {}
-            }
-        fragmentCameraBinding.bottomSheetLayout.spinnerModel.setSelection(0, false)
-        fragmentCameraBinding.bottomSheetLayout.spinnerModel.onItemSelectedListener =
-            object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
-                    objectDetectorHelper.currentModel = p2
-                    updateControlsUi()
-                }
-
-                override fun onNothingSelected(p0: AdapterView<*>?) {}
-            }
-    }
-
-    private fun updateControlsUi() {
-        fragmentCameraBinding.bottomSheetLayout.maxResultsValue.text =
-            objectDetectorHelper.maxResults.toString()
-        fragmentCameraBinding.bottomSheetLayout.thresholdValue.text =
-            String.format("%.2f", objectDetectorHelper.threshold)
-        fragmentCameraBinding.bottomSheetLayout.threadsValue.text =
-            objectDetectorHelper.numThreads.toString()
-        objectDetectorHelper.clearObjectDetector()
-        fragmentCameraBinding.overlay.clear()
-    }
-
-    private fun setUpCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
-        cameraProviderFuture.addListener({
-            cameraProvider = cameraProviderFuture.get()
-            bindCameraUseCases()
-        }, ContextCompat.getMainExecutor(requireContext()))
-    }
-
-    private fun bindCameraUseCases() {
-        val cameraProvider = cameraProvider ?: throw IllegalStateException("Camera initialization failed.")
-        cameraSelector = CameraSelector.Builder().requireLensFacing(camFace).build()
-        preview = Preview.Builder()
-            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-            .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
-            .build()
-        imageAnalyzer = ImageAnalysis.Builder()
-            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-            .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_YUV_420_888)
-            .build()
-            .also {
-                it.setAnalyzer(cameraExecutor) { image ->
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastAnalyzedTimestamp >= ANALYSIS_INTERVAL_MS) {
-                        lastAnalyzedTimestamp = currentTime
-                        when {
-                            isObjectDetection -> detectObjects(image)
-                            isTextRecognition -> detectText(image)
-                            start -> analyzeFace(image)
-                            else -> image.close()
-                        }
-                    } else {
-                        image.close()
-                    }
-                }
-            }
-        cameraProvider.unbindAll()
-        try {
-            camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
-            preview?.setSurfaceProvider(fragmentCameraBinding.viewFinder.surfaceProvider)
-        } catch (exc: Exception) {
-            Log.e(TAG, "Use case binding failed", exc)
-        }
-    }
-
-    private fun detectObjects(image: ImageProxy) {
-        val bitmap = BitmapUtils.imageProxyToBitmap(image)
-        val imageRotation = image.imageInfo.rotationDegrees
-        image.close()
-        lifecycleScope.launch(Dispatchers.Main) {
-            objectDetectorHelper.detect(bitmap, imageRotation)
-        }
-    }
-
-    @androidx.annotation.OptIn(ExperimentalGetImage::class)
-    private fun detectText(image: ImageProxy) {
-        val mediaImage = image.image ?: return
-        val inputImage = InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
-        textRecognizer?.process(inputImage)
-            ?.addOnSuccessListener { visionText ->
-                fragmentCameraBinding.overlay.setResults(
-                    emptyList(), mediaImage.height, mediaImage.width, visionText.textBlocks
-                )
-                if (visionText.textBlocks.isNotEmpty()) {
-                    readDetectedText(visionText.textBlocks.map { it.text })
-                }
-                image.close()
-            }
-            ?.addOnFailureListener { e ->
-                Log.e(TAG, "Text Recognition Error: $e")
-                image.close()
-            }
     }
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
@@ -704,35 +545,30 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         tfLite.runForMultipleInputsOutputs(inputArray, outputMap)
 
         var distanceLocal = Float.MAX_VALUE
-        var id = "0"
-        var label = "?"
 
         if (registered.isNotEmpty()) {
             val nearest = findNearest(embeddings[0])
 
-            if (nearest[0] != null) {
-                val name = nearest[0].first
-                distanceLocal = nearest[0].second
-                fragmentCameraBinding.textView.text = if (developerMode) {
-                    if (distanceLocal < distance) {
-                        "Nearest: $name\nDist: %.3f".format(distanceLocal) +
-                                "\n2nd Nearest: ${nearest[1].first}\nDist: %.3f".format(nearest[1].second)
-                    } else {
-                        "Unknown\nDist: %.3f".format(distanceLocal) +
-                                "\nNearest: $name\nDist: %.3f".format(distanceLocal) +
-                                "\n2nd Nearest: ${nearest[1].first}\nDist: %.3f".format(nearest[1].second)
-                    }
+            val name = nearest[0].first
+            distanceLocal = nearest[0].second
+            fragmentCameraBinding.textView.text = if (developerMode) {
+                if (distanceLocal < distance) {
+                    "Nearest: $name\nDist: %.3f".format(distanceLocal) +
+                            "\n2nd Nearest: ${nearest[1].first}\nDist: %.3f".format(nearest[1].second)
                 } else {
-                    if (distanceLocal < distance) {
-                        name
-                    } else {
-                        "Unknown"
-                    }
+                    "Unknown\nDist: %.3f".format(distanceLocal) +
+                            "\nNearest: $name\nDist: %.3f".format(distanceLocal) +
+                            "\n2nd Nearest: ${nearest[1].first}\nDist: %.3f".format(nearest[1].second)
+                }
+            } else {
+                if (distanceLocal < distance) {
+                    name
+                } else {
+                    "Unknown"
                 }
             }
         }
     }
-
 
     private fun findNearest(emb: FloatArray): List<Pair<String, Float>> {
         val neighbourList = mutableListOf<Pair<String, Float>>()
@@ -965,6 +801,222 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         val startOffset = fileDescriptor.startOffset
         val declaredLength = fileDescriptor.declaredLength
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+    }
+
+    private fun startNavigationSequence() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(requireActivity(), arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_LOCATION_PERMISSION)
+        } else {
+            getCurrentLocation()
+        }
+    }
+
+    private fun getCurrentLocation() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                REQUEST_LOCATION_PERMISSION
+            )
+        } else {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location ->
+                    if (location != null) {
+                        currentLatLng = LatLng(location.latitude, location.longitude)
+                        textToSpeech.speak("Please provide your destination", TextToSpeech.QUEUE_FLUSH, null, null)
+                        isWaitingForDestination = true
+                    } else {
+                        Toast.makeText(requireContext(), "Unable to get current location. Make sure location services are enabled.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .addOnFailureListener {
+                    Toast.makeText(requireContext(), "Failed to get current location", Toast.LENGTH_SHORT).show()
+                }
+        }
+    }
+
+    private fun handleDestinationInput(destination: String) {
+        val geocoder = Geocoder(requireContext(), Locale.getDefault())
+        try {
+            val addresses = geocoder.getFromLocationName(destination, 1)
+            if (addresses != null && addresses.isNotEmpty()) {
+                val destinationLatLng = LatLng(addresses[0].latitude, addresses[0].longitude)
+                openMapForNavigation(destinationLatLng)
+            } else {
+                Toast.makeText(requireContext(), "Destination not found.", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: IOException) {
+            Toast.makeText(requireContext(), "Error finding destination: ${e.message}", Toast.LENGTH_SHORT).show()
+        } finally {
+            isWaitingForDestination = false
+        }
+    }
+
+    private fun openMapForNavigation(destinationLatLng: LatLng) {
+        val intent = Intent(requireContext(), MapsActivity::class.java).apply {
+            putExtra("CURRENT_LAT", currentLatLng?.latitude)
+            putExtra("CURRENT_LNG", currentLatLng?.longitude)
+            putExtra("DESTINATION_LAT", destinationLatLng.latitude)
+            putExtra("DESTINATION_LNG", destinationLatLng.longitude)
+        }
+        startActivityForResult(intent, NAVIGATION_REQUEST_CODE)
+    }
+
+    private fun getDescriptionForDetection(detection: Detection): String {
+        val label = detection.categories[0].label
+        val score = detection.categories[0].score
+        val company = "Company X"
+        val size = "medium"
+        val color = "red"
+
+        return "$label detected with $score confidence. Company: $company, Size: $size, Color: $color."
+    }
+
+    private fun initBottomSheetControls() {
+        fragmentCameraBinding.bottomSheetLayout.thresholdMinus.setOnClickListener {
+            if (objectDetectorHelper.threshold >= 0.1) {
+                objectDetectorHelper.threshold -= 0.1f
+                updateControlsUi()
+            }
+        }
+        fragmentCameraBinding.bottomSheetLayout.thresholdPlus.setOnClickListener {
+            if (objectDetectorHelper.threshold <= 0.8) {
+                objectDetectorHelper.threshold += 0.1f
+                updateControlsUi()
+            }
+        }
+        fragmentCameraBinding.bottomSheetLayout.maxResultsMinus.setOnClickListener {
+            if (objectDetectorHelper.maxResults > 1) {
+                objectDetectorHelper.maxResults--
+                updateControlsUi()
+            }
+        }
+        fragmentCameraBinding.bottomSheetLayout.maxResultsPlus.setOnClickListener {
+            if (objectDetectorHelper.maxResults < 5) {
+                objectDetectorHelper.maxResults++
+                updateControlsUi()
+            }
+        }
+        fragmentCameraBinding.bottomSheetLayout.threadsMinus.setOnClickListener {
+            if (objectDetectorHelper.numThreads > 1) {
+                objectDetectorHelper.numThreads--
+                updateControlsUi()
+            }
+
+        }
+        fragmentCameraBinding.bottomSheetLayout.threadsPlus.setOnClickListener {
+            if (objectDetectorHelper.numThreads < 4) {
+                objectDetectorHelper.numThreads++
+                updateControlsUi()
+            }
+        }
+        fragmentCameraBinding.bottomSheetLayout.spinnerDelegate.setSelection(0, false)
+        fragmentCameraBinding.bottomSheetLayout.spinnerDelegate.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
+                    objectDetectorHelper.currentDelegate = p2
+                    updateControlsUi()
+                }
+
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
+            }
+        fragmentCameraBinding.bottomSheetLayout.spinnerModel.setSelection(0, false)
+        fragmentCameraBinding.bottomSheetLayout.spinnerModel.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
+                    objectDetectorHelper.currentModel = p2
+                    updateControlsUi()
+                }
+
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
+            }
+    }
+
+    private fun updateControlsUi() {
+        fragmentCameraBinding.bottomSheetLayout.maxResultsValue.text =
+            objectDetectorHelper.maxResults.toString()
+        fragmentCameraBinding.bottomSheetLayout.thresholdValue.text =
+            String.format("%.2f", objectDetectorHelper.threshold)
+        fragmentCameraBinding.bottomSheetLayout.threadsValue.text =
+            objectDetectorHelper.numThreads.toString()
+        objectDetectorHelper.clearObjectDetector()
+        fragmentCameraBinding.overlay.clear()
+    }
+
+    private fun setUpCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener({
+            cameraProvider = cameraProviderFuture.get()
+            bindCameraUseCases()
+        }, ContextCompat.getMainExecutor(requireContext()))
+    }
+
+    private fun bindCameraUseCases() {
+        val cameraProvider = cameraProvider ?: throw IllegalStateException("Camera initialization failed.")
+        cameraSelector = CameraSelector.Builder().requireLensFacing(camFace).build()
+        preview = Preview.Builder()
+            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+            .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
+            .build()
+        imageAnalyzer = ImageAnalysis.Builder()
+            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+            .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_YUV_420_888)
+            .build()
+            .also {
+                it.setAnalyzer(cameraExecutor) { image ->
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastAnalyzedTimestamp >= ANALYSIS_INTERVAL_MS) {
+                        lastAnalyzedTimestamp = currentTime
+                        when {
+                            isObjectDetection -> detectObjects(image)
+                            isTextRecognition -> detectText(image)
+                            start -> analyzeFace(image)
+                            else -> image.close()
+                        }
+                    } else {
+                        image.close()
+                    }
+                }
+            }
+        cameraProvider.unbindAll()
+        try {
+            camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
+            preview?.setSurfaceProvider(fragmentCameraBinding.viewFinder.surfaceProvider)
+        } catch (exc: Exception) {
+            Log.e(TAG, "Use case binding failed", exc)
+        }
+    }
+
+    private fun detectObjects(image: ImageProxy) {
+        val bitmap = BitmapUtils.imageProxyToBitmap(image)
+        val imageRotation = image.imageInfo.rotationDegrees
+        image.close()
+        lifecycleScope.launch(Dispatchers.Main) {
+            objectDetectorHelper.detect(bitmap, imageRotation)
+        }
+    }
+
+    @androidx.annotation.OptIn(ExperimentalGetImage::class)
+    private fun detectText(image: ImageProxy) {
+        val mediaImage = image.image ?: return
+        val inputImage = InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
+        textRecognizer?.process(inputImage)
+            ?.addOnSuccessListener { visionText ->
+                fragmentCameraBinding.overlay.setResults(
+                    emptyList(), mediaImage.height, mediaImage.width, visionText.textBlocks
+                )
+                if (visionText.textBlocks.isNotEmpty()) {
+                    readDetectedText(visionText.textBlocks.map { it.text })
+                }
+                image.close()
+            }
+            ?.addOnFailureListener { e ->
+                Log.e(TAG, "Text Recognition Error: $e")
+                image.close()
+            }
     }
 
     private fun readDetectedText(textBlocks: List<String>) {
