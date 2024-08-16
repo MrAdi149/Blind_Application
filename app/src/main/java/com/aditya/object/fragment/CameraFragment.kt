@@ -792,6 +792,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         parcelFileDescriptor.close()
         return image
     }
+    
 
     @Throws(IOException::class)
     private fun loadModelFile(activity: Activity, modelFile: String): MappedByteBuffer {

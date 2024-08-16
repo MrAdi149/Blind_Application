@@ -74,6 +74,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 .position(it, overlaySize)
         }
 
+
         val zoomLevel = 15f
 
         currentLatLng?.let { CameraUpdateFactory.newLatLngZoom(it, zoomLevel) }

@@ -6,4 +6,3 @@ data class DetectionResult(
     val detection: Detection,
     val distance: Float
 )
-
