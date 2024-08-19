@@ -2,22 +2,12 @@ package com.aditya.`object`.fragment
 
 import android.Manifest
 import android.app.Activity
-import android.app.Activity.RESULT_OK
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.ImageFormat
-import android.graphics.Matrix
-import android.graphics.Paint
-import android.graphics.Rect
-import android.graphics.RectF
-import android.graphics.YuvImage
+import android.graphics.*
 import android.location.Geocoder
 import android.media.Image
 import android.net.Uri
@@ -33,10 +23,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
+import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.camera.core.*
-import androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888
+import androidx.camera.core.Camera
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -60,13 +51,13 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.task.vision.detector.Detection
-import java.io.ByteArrayOutputStream
-import java.io.FileDescriptor
-import java.io.FileInputStream
-import java.io.IOException
+import java.io.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
@@ -87,6 +78,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private lateinit var speechRecognizerIntent: Intent
     private var isListening = false
     private var describedDetection: Detection? = null
+    private lateinit var actions: Button
 
     private val RECORD_REQUEST_CODE = 101
     private val RESTART_DELAY_MS = 1000L
@@ -149,42 +141,49 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         speechRecognizer.destroy()
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View {
-        _fragmentCameraBinding = FragmentCameraBinding.inflate(inflater, container, false)
-        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
-        checkPermission()
-        initButtons()
-        return fragmentCameraBinding.root
-    }
-
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean(KEY_IS_OBJECT_DETECTION, isObjectDetection)
         outState.putBoolean(KEY_IS_TEXT_RECOGNITION, isTextRecognition)
     }
 
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View {
+        _fragmentCameraBinding = FragmentCameraBinding.inflate(inflater, container, false)
+        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
+        checkPermission()
+        return fragmentCameraBinding.root
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        actions = view.findViewById(R.id.button2)  // Initialize actions button here
+
+        initButtons()
 
         if (savedInstanceState != null) {
             isObjectDetection = savedInstanceState.getBoolean(KEY_IS_OBJECT_DETECTION)
             isTextRecognition = savedInstanceState.getBoolean(KEY_IS_TEXT_RECOGNITION)
         }
+
         objectDetectorHelper = ObjectDetectorHelper(
             context = requireContext(),
             objectDetectorListener = this
         )
+
         textToSpeech = TextToSpeech(requireContext()) { status ->
             if (status != TextToSpeech.ERROR) {
                 textToSpeech.language = Locale.US
             }
         }
+
         cameraExecutor = Executors.newSingleThreadExecutor()
         fragmentCameraBinding.viewFinder.post {
             setUpCamera()
         }
+
         initBottomSheetControls()
         initializeFaceRecognition()
     }
@@ -341,6 +340,51 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             switchCamera()
         }
 
+        actions.setOnClickListener {
+            val builder = context?.let { it1 -> androidx.appcompat.app.AlertDialog.Builder(it1) }
+            if (builder != null) {
+                builder.setTitle("Select Action:")
+            }
+
+            val names = arrayOf(
+                "View Recognition List",
+                "Update Recognition List",
+                "Save Recognitions",
+                "Load Recognitions",
+                "Clear All Recognitions",
+                "Import Photo (Beta)",
+                "Hyperparameters",
+                "Developer Mode"
+            )
+
+            if (builder != null) {
+                builder.setItems(names) { _, which ->
+                    when (which) {
+                        0 -> displayNameListView()
+                        1 -> updateNameListView()
+                        2 -> insertToSP(registered, 0) // mode: 0:save all, 1:clear all, 2:update all
+                        3 -> registered.putAll(readFromSP())
+                        4 -> clearNameList()
+                        5 -> loadPhoto()
+                        6 -> testHyperparameter()
+                        7 -> developerMode()
+                    }
+                }
+            }
+
+            if (builder != null) {
+                builder.setPositiveButton("OK", null)
+            }
+            if (builder != null) {
+                builder.setNegativeButton("Cancel", null)
+            }
+
+            val dialog = builder?.create()
+            if (dialog != null) {
+                dialog.show()
+            }
+        }
+
         fragmentCameraBinding.button3.setOnClickListener {
             if (fragmentCameraBinding.button3.text.toString() == "Recognize") {
                 start = true
@@ -363,6 +407,166 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
         fragmentCameraBinding.imageButton.setOnClickListener {
             addFace()
+        }
+    }
+
+    private fun testHyperparameter() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (builder != null) {
+            builder.setTitle("Select Hyperparameter:")
+        }
+
+        val names = arrayOf("Maximum Nearest Neighbour Distance")
+
+        if (builder != null) {
+            builder.setItems(names) { _, which ->
+                if (which == 0) {
+                    hyperparameters()
+                }
+            }
+        }
+
+        if (builder != null) {
+            builder.setPositiveButton("OK", null)
+        }
+        if (builder != null) {
+            builder.setNegativeButton("Cancel", null)
+        }
+
+        val dialog = builder?.create()
+        if (dialog != null) {
+            dialog.show()
+        }
+    }
+
+    private fun developerMode() {
+        developerMode = if (developerMode) {
+            Toast.makeText(context, "Developer Mode OFF", Toast.LENGTH_SHORT).show()
+            false
+        } else {
+            Toast.makeText(context, "Developer Mode ON", Toast.LENGTH_SHORT).show()
+            true
+        }
+    }
+
+
+    private fun clearNameList() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (builder != null) {
+            builder.setTitle("Do you want to delete all Recognitions?")
+        }
+        if (builder != null) {
+            builder.setPositiveButton("Delete All") { _, _ ->
+                registered.clear()
+                Toast.makeText(context, "Recognitions Cleared", Toast.LENGTH_SHORT).show()
+            }
+        }
+        insertToSP(registered, 1)
+        if (builder != null) {
+            builder.setNegativeButton("Cancel", null)
+        }
+        val dialog = builder?.create()
+        if (dialog != null) {
+            dialog.show()
+        }
+    }
+
+    private fun updateNameListView() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (registered.isEmpty()) {
+            builder?.setTitle("No Faces Added!!")
+            builder?.setPositiveButton("OK", null)
+        } else {
+            builder?.setTitle("Select Recognition to delete:")
+
+            // Create a list of names with phone numbers
+            val namesWithNumbers = Array(registered.size) { i ->
+                val recognition = registered.values.elementAt(i)
+                val name = registered.keys.elementAt(i)
+                val phoneNumber = recognition.phoneNumber ?: "N/A" // Use "N/A" if phoneNumber is null
+                "$name ($phoneNumber)"
+            }
+
+            val checkedItems = BooleanArray(registered.size)
+
+            builder?.setMultiChoiceItems(namesWithNumbers, checkedItems) { _, which, isChecked ->
+                checkedItems[which] = isChecked
+            }
+
+            builder?.setPositiveButton("OK") { _, _ ->
+                for (i in checkedItems.indices) {
+                    if (checkedItems[i]) {
+                        registered.remove(registered.keys.elementAt(i))
+                    }
+                }
+                insertToSP(registered, 2) // mode: 0:save all, 1:clear all, 2:update all
+                Toast.makeText(context, "Recognitions Updated", Toast.LENGTH_SHORT).show()
+            }
+
+            builder?.setNegativeButton("Cancel", null)
+        }
+
+        val dialog = builder?.create()
+        dialog?.show()
+    }
+
+    private fun displayNameListView() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (builder != null) {
+            builder.setTitle(if (registered.isEmpty()) "No Faces Added!!" else "Recognitions:")
+        }
+
+        val names = Array(registered.size) { i -> registered.keys.elementAt(i) }
+        if (builder != null) {
+            builder.setItems(names, null)
+        }
+
+        if (builder != null) {
+            builder.setPositiveButton("OK", null)
+        }
+
+        val dialog = builder?.create()
+        if (dialog != null) {
+            dialog.show()
+        }
+    }
+
+    private fun hyperparameters() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (builder != null) {
+            builder.setTitle("Euclidean Distance")
+        }
+        if (builder != null) {
+            builder.setMessage("0.00 -> Perfect Match\n1.00 -> Default\nTurn On Developer Mode to find optimum value\n\nCurrent Value:")
+        }
+
+        val input = EditText(context)
+        input.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        if (builder != null) {
+            builder.setView(input)
+        }
+
+        val sharedPref = requireActivity().getSharedPreferences("Distance", Context.MODE_PRIVATE)
+        distance = sharedPref.getFloat("distance", 1.00f)
+        input.setText(distance.toString())
+
+        if (builder != null) {
+            builder.setPositiveButton("Update") { _, _ ->
+                distance = input.text.toString().toFloat()
+
+                val editor = sharedPref.edit()
+                editor.putFloat("distance", distance)
+                editor.apply()
+            }
+        }
+        if (builder != null) {
+            builder.setNegativeButton("Cancel") { dialog, _ ->
+                dialog.cancel()
+            }
+        }
+
+        if (builder != null) {
+            builder.show()
         }
     }
 
@@ -409,7 +613,11 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
                     if (matches.isNotEmpty()) {
                         val name = matches[0]
-                        saveFace(name)
+                        // Introduce a 30 seconds delay before saving the face
+                        lifecycleScope.launch {
+                            delay(30000)  // 30 seconds delay
+                            promptForPhoneNumber(name)
+                        }
                     }
                 }
             }
@@ -422,13 +630,34 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         speechRecognizer.startListening(speechRecognizerIntent)
     }
 
-    private fun saveFace(name: String) {
-        val result = SimilarityClassifier.Recognition("0", "", -1f)
+    private fun promptForPhoneNumber(name: String) {
+        val builder = AlertDialog.Builder(requireContext())
+        builder.setTitle("Enter Phone Number for $name")
+
+        val input = EditText(requireContext())
+        input.inputType = InputType.TYPE_CLASS_PHONE
+        builder.setView(input)
+
+        builder.setPositiveButton("Add") { _, _ ->
+            val phoneNumber = input.text.toString()
+            saveFace(name, phoneNumber)
+        }
+
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            dialog.cancel()
+        }
+
+        builder.show()
+    }
+
+    private fun saveFace(name: String, phoneNumber: String) {
+        val result = SimilarityClassifier.Recognition("0", name, -1f)
         result.extra = embeddings
+        result.phoneNumber = phoneNumber  // Set the phone number here
         registered[name] = result
         insertToSP(registered, 0)
         start = true
-        Toast.makeText(requireContext(), "$name has been added", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "$name with Phone Number $phoneNumber has been added", Toast.LENGTH_SHORT).show()
     }
 
     private fun startFaceRecognition() {
@@ -453,18 +682,15 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         val builder = AlertDialog.Builder(requireContext())
         builder.setTitle("Enter Name")
 
-        val input = EditText(requireContext())
-        input.inputType = InputType.TYPE_CLASS_TEXT
-        builder.setView(input)
+        val nameInput = EditText(requireContext())
+        nameInput.inputType = InputType.TYPE_CLASS_TEXT
+        builder.setView(nameInput)
 
-        builder.setPositiveButton("ADD") { _, _ ->
-            val result = SimilarityClassifier.Recognition("0", "", -1f)
-            result.extra = embeddings
-
-            registered[input.text.toString()] = result
-            insertToSP(registered, 0)
-            start = true
+        builder.setPositiveButton("NEXT") { _, _ ->
+            val name = nameInput.text.toString()
+            promptForPhoneNumber(name)
         }
+
         builder.setNegativeButton("Cancel") { dialog, _ ->
             start = true
             dialog.cancel()
@@ -750,7 +976,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == RESULT_OK) {
+        if (resultCode == Activity.RESULT_OK) {
             if (requestCode == selectPicture) {
                 val selectedImageUri = data?.data
                 selectedImageUri?.let {
@@ -963,7 +1189,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             .setTargetAspectRatio(AspectRatio.RATIO_4_3)
             .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_YUV_420_888)
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
             .build()
             .also {
                 it.setAnalyzer(cameraExecutor) { image ->
