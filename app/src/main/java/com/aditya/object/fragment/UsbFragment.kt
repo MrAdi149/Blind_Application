@@ -127,7 +127,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     private var developerMode = false
     private var distance = 1.0f
     private val selectPicture = 1
-    private var isAddingFace: Boolean = false
 
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var speechRecognizerIntent: Intent
@@ -383,24 +382,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                 objectDetectorHelper.detect(bitmap, 0)
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing frame: ${e.message}")
-            }
-        }
-    }
-
-    private fun processfra(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat){
-        data ?: return
-
-        val currentTime = System.currentTimeMillis()
-        if(currentTime - lastFrameTime < DETECTION_INTERVAL_MS) return
-
-        Log.d(TAG, "processing frame with width: $width, height: $height, format: $format")
-
-        lifecycleScope.launch(inferenceDispatcher){
-            try {
-                val bitmap = convertYUVToBitmap(data, width/2, height/2, format)
-                objectDetectorHelper.detect(bitmap, 0)
-            } catch (e: Exception) {
-                Log.e(TAG, "error processing frame: ${e.message}")
             }
         }
     }
