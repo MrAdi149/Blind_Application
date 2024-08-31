@@ -33,7 +33,7 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
     private var describedObject: Detection? = null
 
     private var scaleFactor: Float = 1f
-
+    private var objectCountPaint = Paint()
     private var bounds = Rect()
 
     init {
@@ -66,6 +66,14 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
         objectTextPaint.strokeWidth = 2f
         objectTextPaint.isAntiAlias = true
         objectTextPaint.setShadowLayer(5.0f, 0.0f, 0.0f, Color.BLACK)
+
+        // Paint for object count display
+        objectCountPaint.color = Color.WHITE
+        objectCountPaint.textSize = 80f
+        objectCountPaint.style = Paint.Style.FILL_AND_STROKE
+        objectCountPaint.strokeWidth = 2f
+        objectCountPaint.isAntiAlias = true
+        objectCountPaint.setShadowLayer(5.0f, 0.0f, 0.0f, Color.BLACK)
 
         // Paint for text block bounding box
         textBlockBoxPaint.color = ContextCompat.getColor(context!!, R.color.bounding_box_color)
@@ -100,6 +108,20 @@ class OverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs
         super.onDraw(canvas)
 
         Log.d("OverlayView", "onDraw called")
+
+        // Draw the object count on the left side of the screen
+        val objectCountText = "Objects: ${results.size}"
+        canvas.drawText(objectCountText, 20f, 100f, objectCountPaint)
+
+        // Group objects by their labels and count them
+        val groupedObjects = results.groupBy { it.detection.categories.firstOrNull()?.label ?: "Unknown" }
+        var yOffset = 200f // Start drawing the counts below the total object count
+
+        groupedObjects.forEach { (label, objects) ->
+            val objectCountByLabel = "$label: ${objects.size}"
+            canvas.drawText(objectCountByLabel, 20f, yOffset, objectCountPaint)
+            yOffset += 100f // Move down for the next label
+        }
 
         // Draw detected objects
         for (resultWithDistance in results) {

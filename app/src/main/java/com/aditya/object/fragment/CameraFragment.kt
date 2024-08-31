@@ -1,6 +1,7 @@
 package com.aditya.`object`.fragment
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
@@ -34,11 +35,8 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
-import com.aditya.`object`.BitmapUtils
-import com.aditya.`object`.DetectionResult
-import com.aditya.`object`.ObjectDetectorHelper
+import com.aditya.`object`.*
 import com.aditya.`object`.R
-import com.aditya.`object`.SimilarityClassifier
 import com.aditya.`object`.databinding.FragmentCameraBinding
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
@@ -52,9 +50,8 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.task.vision.detector.Detection
 import java.io.*
@@ -71,14 +68,16 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private val TAG = "ObjectDetection"
     private var _fragmentCameraBinding: FragmentCameraBinding? = null
     private val fragmentCameraBinding get() = _fragmentCameraBinding!!
+
     private var isObjectDetection = false
     private var isTextRecognition = false
+    private var lastPronouncedName: String? = null
+
     private var textRecognizer: TextRecognizer? = null
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var speechRecognizerIntent: Intent
     private var isListening = false
     private var describedDetection: Detection? = null
-    private lateinit var actions: Button
 
     private val RECORD_REQUEST_CODE = 101
     private val RESTART_DELAY_MS = 1000L
@@ -103,6 +102,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private var distance = 1.0f
     private var start = true
     private var flipX = false
+    private lateinit var actions: Button
     private var camFace = CameraSelector.LENS_FACING_BACK
     private lateinit var cameraSelector: CameraSelector
     private val inputSize = 112
@@ -114,6 +114,8 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private val outputSize = 192
     private val selectPicture = 1
     private val modelFile = "mobile_face_net.tflite"
+
+    private lateinit var itemMap: HashMap<String, Int>
 
     companion object {
         private const val KEY_IS_OBJECT_DETECTION = "KEY_IS_OBJECT_DETECTION"
@@ -156,38 +158,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         return fragmentCameraBinding.root
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        actions = view.findViewById(R.id.button2)  // Initialize actions button here
-
-        initButtons()
-
-        if (savedInstanceState != null) {
-            isObjectDetection = savedInstanceState.getBoolean(KEY_IS_OBJECT_DETECTION)
-            isTextRecognition = savedInstanceState.getBoolean(KEY_IS_TEXT_RECOGNITION)
-        }
-
-        objectDetectorHelper = ObjectDetectorHelper(
-            context = requireContext(),
-            objectDetectorListener = this
-        )
-
-        textToSpeech = TextToSpeech(requireContext()) { status ->
-            if (status != TextToSpeech.ERROR) {
-                textToSpeech.language = Locale.US
-            }
-        }
-
-        cameraExecutor = Executors.newSingleThreadExecutor()
-        fragmentCameraBinding.viewFinder.post {
-            setUpCamera()
-        }
-
-        initBottomSheetControls()
-        initializeFaceRecognition()
-    }
-
     private fun checkPermission() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
@@ -202,10 +172,12 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     private fun setupSpeechRecognizer() {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
+
         speechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
         }
+
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
                 isListening = true
@@ -228,7 +200,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 isListening = false
                 results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
                     if (matches.isNotEmpty()) {
-                        val command = matches[0].toLowerCase(Locale.ROOT)
+                        val command = matches[0].lowercase(Locale.ROOT)
                         handleVoiceCommand(command)
                     }
                 }
@@ -263,12 +235,51 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        _fragmentCameraBinding = FragmentCameraBinding.bind(view)
+
+        actions = view.findViewById(R.id.button2)
+
+        initButtons()
+
+        if (savedInstanceState != null) {
+            isObjectDetection = savedInstanceState.getBoolean(KEY_IS_OBJECT_DETECTION)
+            isTextRecognition = savedInstanceState.getBoolean(KEY_IS_TEXT_RECOGNITION)
+        }
+
+        objectDetectorHelper = ObjectDetectorHelper(
+            context = requireContext(),
+            objectDetectorListener = this
+        )
+
+        textToSpeech = TextToSpeech(requireContext()) { status ->
+            if (status != TextToSpeech.ERROR) {
+                textToSpeech.language = Locale.US
+            }
+        }
+
+        cameraExecutor = Executors.newSingleThreadExecutor()
+        if (_fragmentCameraBinding != null) {
+            setUpCamera()
+
+        } else {
+            Log.e(TAG, "FragmentCameraBinding is null in onViewCreated")
+        }
+
+        initBottomSheetControls()
+        initializeFaceRecognition()
+
+        itemMap = HashMap()
+    }
+
     private fun handleVoiceCommand(command: String) {
         when (command) {
             "start" -> {
                 isObjectDetection = true
                 isTextRecognition = false
                 describedDetection = null
+                start = true
                 fragmentCameraBinding.overlay.clear()
                 Toast.makeText(requireContext(), "Object Detection Started", Toast.LENGTH_SHORT).show()
             }
@@ -282,6 +293,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 }
                 isObjectDetection = false
                 isTextRecognition = false
+                start = false
                 fragmentCameraBinding.overlay.clear()
             }
             "read" -> {
@@ -302,15 +314,23 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
             }
             "navigation" -> {
                 startNavigationSequence()
+                isTextRecognition = false
             }
             "switch camera" -> {
                 switchCamera()
+                isObjectDetection = false
+                isTextRecognition = false
             }
             "add face" -> {
                 addFaceVoiceCommand()
+                isObjectDetection = false
+                isTextRecognition = false
             }
             "read face" -> {
                 startFaceRecognition()
+                isObjectDetection = false
+                isTextRecognition = false
+                start = true
             }
             else -> {
                 if (isWaitingForDestination) {
@@ -322,6 +342,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun initButtons() {
         fragmentCameraBinding.btnStartTextDetection.setOnClickListener {
             handleVoiceCommand("start")
@@ -362,7 +383,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                     when (which) {
                         0 -> displayNameListView()
                         1 -> updateNameListView()
-                        2 -> insertToSP(registered, 0) // mode: 0:save all, 1:clear all, 2:update all
+                        2 -> insertToSP(registered, 0)
                         3 -> registered.putAll(readFromSP())
                         4 -> clearNameList()
                         5 -> loadPhoto()
@@ -449,41 +470,46 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
     }
 
-
     private fun clearNameList() {
         val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+
         if (builder != null) {
             builder.setTitle("Do you want to delete all Recognitions?")
         }
+
         if (builder != null) {
             builder.setPositiveButton("Delete All") { _, _ ->
                 registered.clear()
                 Toast.makeText(context, "Recognitions Cleared", Toast.LENGTH_SHORT).show()
             }
         }
+
         insertToSP(registered, 1)
         if (builder != null) {
             builder.setNegativeButton("Cancel", null)
         }
+
         val dialog = builder?.create()
         if (dialog != null) {
             dialog.show()
         }
+
     }
 
     private fun updateNameListView() {
+
         val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+
         if (registered.isEmpty()) {
             builder?.setTitle("No Faces Added!!")
             builder?.setPositiveButton("OK", null)
         } else {
             builder?.setTitle("Select Recognition to delete:")
 
-            // Create a list of names with phone numbers
             val namesWithNumbers = Array(registered.size) { i ->
                 val recognition = registered.values.elementAt(i)
                 val name = registered.keys.elementAt(i)
-                val phoneNumber = recognition.phoneNumber ?: "N/A" // Use "N/A" if phoneNumber is null
+                val phoneNumber = recognition.phoneNumber ?: "N/A"
                 "$name ($phoneNumber)"
             }
 
@@ -499,7 +525,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                         registered.remove(registered.keys.elementAt(i))
                     }
                 }
-                insertToSP(registered, 2) // mode: 0:save all, 1:clear all, 2:update all
+                insertToSP(registered, 2)
                 Toast.makeText(context, "Recognitions Updated", Toast.LENGTH_SHORT).show()
             }
 
@@ -512,11 +538,13 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     private fun displayNameListView() {
         val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+
         if (builder != null) {
             builder.setTitle(if (registered.isEmpty()) "No Faces Added!!" else "Recognitions:")
         }
 
         val names = Array(registered.size) { i -> registered.keys.elementAt(i) }
+
         if (builder != null) {
             builder.setItems(names, null)
         }
@@ -526,6 +554,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
 
         val dialog = builder?.create()
+
         if (dialog != null) {
             dialog.show()
         }
@@ -533,15 +562,18 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
     private fun hyperparameters() {
         val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+
         if (builder != null) {
             builder.setTitle("Euclidean Distance")
         }
+
         if (builder != null) {
             builder.setMessage("0.00 -> Perfect Match\n1.00 -> Default\nTurn On Developer Mode to find optimum value\n\nCurrent Value:")
         }
 
         val input = EditText(context)
         input.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+
         if (builder != null) {
             builder.setView(input)
         }
@@ -559,6 +591,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 editor.apply()
             }
         }
+
         if (builder != null) {
             builder.setNegativeButton("Cancel") { dialog, _ ->
                 dialog.cancel()
@@ -568,10 +601,12 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         if (builder != null) {
             builder.show()
         }
+
     }
 
     private fun initializeFaceRecognition() {
         registered = readFromSP()
+
         try {
             tfLite = Interpreter(loadModelFile(requireActivity(), modelFile))
         } catch (e: IOException) {
@@ -613,9 +648,8 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
                     if (matches.isNotEmpty()) {
                         val name = matches[0]
-                        // Introduce a 30 seconds delay before saving the face
                         lifecycleScope.launch {
-                            delay(30000)  // 30 seconds delay
+                            delay(30000)
                             promptForPhoneNumber(name)
                         }
                     }
@@ -653,7 +687,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private fun saveFace(name: String, phoneNumber: String) {
         val result = SimilarityClassifier.Recognition("0", name, -1f)
         result.extra = embeddings
-        result.phoneNumber = phoneNumber  // Set the phone number here
+        result.phoneNumber = phoneNumber
         registered[name] = result
         insertToSP(registered, 0)
         start = true
@@ -722,6 +756,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                         fragmentCameraBinding.textView.text =
                             if (registered.isEmpty()) "Add Face" else "No Face Detected!"
                     }
+
                     image.close()
                 }
                 .addOnFailureListener {
@@ -738,11 +773,8 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
 
         val imgData = ByteBuffer.allocateDirect(1 * inputSize * inputSize * 3 * 4)
         imgData.order(ByteOrder.nativeOrder())
-
         intValues = IntArray(inputSize * inputSize)
-
         bitmap.getPixels(intValues, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-
         imgData.rewind()
 
         for (i in 0 until inputSize) {
@@ -761,20 +793,17 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         }
 
         val inputArray = arrayOf<Any>(imgData)
-
         val outputMap = HashMap<Int, Any>()
-
         embeddings = Array(1) { FloatArray(outputSize) }
-
         outputMap[0] = embeddings
-
         tfLite.runForMultipleInputsOutputs(inputArray, outputMap)
 
         var distanceLocal = Float.MAX_VALUE
+        var id = "0"
+        var label = "?"
 
         if (registered.isNotEmpty()) {
             val nearest = findNearest(embeddings[0])
-
             val name = nearest[0].first
             distanceLocal = nearest[0].second
             fragmentCameraBinding.textView.text = if (developerMode) {
@@ -786,8 +815,13 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                             "\nNearest: $name\nDist: %.3f".format(distanceLocal) +
                             "\n2nd Nearest: ${nearest[1].first}\nDist: %.3f".format(nearest[1].second)
                 }
-            } else {
+            }
+            else {
                 if (distanceLocal < distance) {
+                    if (name != lastPronouncedName) {
+                        textToSpeech.speak("Recognized $name", TextToSpeech.QUEUE_FLUSH, null, null) // Announce the name
+                        lastPronouncedName = name
+                    }
                     name
                 } else {
                     "Unknown"
@@ -797,6 +831,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     }
 
     private fun findNearest(emb: FloatArray): List<Pair<String, Float>> {
+
         val neighbourList = mutableListOf<Pair<String, Float>>()
         var ret: Pair<String, Float>? = null
         var prevRet: Pair<String, Float>? = null
@@ -809,6 +844,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 val diff = emb[i] - knownEmb[i]
                 distance += diff * diff
             }
+
             distance = Math.sqrt(distance.toDouble()).toFloat()
 
             if (ret == null || distance < ret!!.second) {
@@ -951,7 +987,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         val token = object : TypeToken<HashMap<String, SimilarityClassifier.Recognition>>() {}
         val retrievedMap: HashMap<String, SimilarityClassifier.Recognition> = Gson().fromJson(json, token.type)
 
-        retrievedMap.forEach { (key, value) ->
+        retrievedMap.forEach { (_, value) ->
             val output = Array(1) { FloatArray(outputSize) }
             val arrayList = value.extra as ArrayList<*>
             val floatArray = arrayList[0] as ArrayList<*>
@@ -974,6 +1010,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         startActivityForResult(Intent.createChooser(intent, "Select Picture"), selectPicture)
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
@@ -1129,7 +1166,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 objectDetectorHelper.numThreads--
                 updateControlsUi()
             }
-
         }
         fragmentCameraBinding.bottomSheetLayout.threadsPlus.setOnClickListener {
             if (objectDetectorHelper.numThreads < 4) {
@@ -1144,7 +1180,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                     objectDetectorHelper.currentDelegate = p2
                     updateControlsUi()
                 }
-
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
             }
         fragmentCameraBinding.bottomSheetLayout.spinnerModel.setSelection(0, false)
@@ -1154,11 +1189,11 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                     objectDetectorHelper.currentModel = p2
                     updateControlsUi()
                 }
-
                 override fun onNothingSelected(p0: AdapterView<*>?) {}
             }
     }
 
+    @SuppressLint("DefaultLocale")
     private fun updateControlsUi() {
         fragmentCameraBinding.bottomSheetLayout.maxResultsValue.text =
             objectDetectorHelper.maxResults.toString()
@@ -1179,15 +1214,20 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     }
 
     private fun bindCameraUseCases() {
+        val binding = fragmentCameraBinding ?: return
+        val display = binding.viewFinder.display ?: return
+        val rotation = display.rotation
+
         val cameraProvider = cameraProvider ?: throw IllegalStateException("Camera initialization failed.")
         cameraSelector = CameraSelector.Builder().requireLensFacing(camFace).build()
         preview = Preview.Builder()
             .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-            .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
+            .setTargetRotation(rotation)
             .build()
+
         imageAnalyzer = ImageAnalysis.Builder()
             .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-            .setTargetRotation(fragmentCameraBinding.viewFinder.display.rotation)
+            .setTargetRotation(rotation)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
             .build()
@@ -1197,7 +1237,10 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                     if (currentTime - lastAnalyzedTimestamp >= ANALYSIS_INTERVAL_MS) {
                         lastAnalyzedTimestamp = currentTime
                         when {
-                            isObjectDetection -> detectObjects(image)
+                            isObjectDetection -> {
+                                detectObjects(image)
+                                analyzeFace(image)
+                            }
                             isTextRecognition -> detectText(image)
                             start -> analyzeFace(image)
                             else -> image.close()
@@ -1207,10 +1250,11 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                     }
                 }
             }
+
         cameraProvider.unbindAll()
         try {
             camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
-            preview?.setSurfaceProvider(fragmentCameraBinding.viewFinder.surfaceProvider)
+            preview?.setSurfaceProvider(binding.viewFinder.surfaceProvider)
         } catch (exc: Exception) {
             Log.e(TAG, "Use case binding failed", exc)
         }
@@ -1219,7 +1263,6 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     private fun detectObjects(image: ImageProxy) {
         val bitmap = BitmapUtils.imageProxyToBitmap(image)
         val imageRotation = image.imageInfo.rotationDegrees
-        image.close()
         lifecycleScope.launch(Dispatchers.Main) {
             objectDetectorHelper.detect(bitmap, imageRotation)
         }
@@ -1246,11 +1289,14 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
     }
 
     private fun readDetectedText(textBlocks: List<String>) {
+
         if (textBlocks.isEmpty() || textToSpeech.isSpeaking) {
             return
         }
+
         val textToRead = textBlocks.joinToString(" ")
         val utteranceId = "UtteranceID-${System.currentTimeMillis()}"
+
         textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String) {
                 // No-op
@@ -1260,10 +1306,12 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
                 // Reset the textToSpeech state after completion
             }
 
+            @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String) {
                 // Handle error
             }
         })
+
         textToSpeech.speak(textToRead, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
@@ -1290,6 +1338,7 @@ class CameraFragment : Fragment(), ObjectDetectorHelper.DetectorListener {
         fragmentCameraBinding.overlay.clear()
     }
 
+    @SuppressLint("DefaultLocale")
     override fun onResults(
         results: MutableList<Detection>?,
         inferenceTime: Long, imageHeight: Int, imageWidth: Int

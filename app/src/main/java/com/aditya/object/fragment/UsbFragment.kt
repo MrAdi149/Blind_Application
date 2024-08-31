@@ -4,26 +4,39 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ImageFormat
+import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.YuvImage
 import android.hardware.usb.UsbDevice
+import android.media.Image
 import android.os.*
 import android.provider.MediaStore
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.text.InputType
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.PopupWindow
 import android.widget.SeekBar
 import android.widget.TextView
@@ -34,10 +47,16 @@ import androidx.lifecycle.lifecycleScope
 import com.aditya.`object`.DetectionResult
 import com.aditya.`object`.ObjectDetectorHelper
 import com.aditya.`object`.R
+import com.aditya.`object`.SimilarityClassifier
 import com.aditya.`object`.databinding.FragmentUsbBinding
 import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.list.listItemsSingleChoice
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetector
+import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -57,9 +76,16 @@ import com.jiangdg.ausbc.utils.bus.BusKey
 import com.jiangdg.ausbc.utils.bus.EventBus
 import com.jiangdg.ausbc.widget.*
 import kotlinx.coroutines.*
+import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.task.vision.detector.Detection
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileInputStream
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.MappedByteBuffer
+import java.nio.channels.FileChannel
 import java.util.*
 import java.util.concurrent.Executors
 
@@ -76,25 +102,51 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     private lateinit var textRecognizer: TextRecognizer
     private var isObjectDetectionActive: Boolean = false
     private var isTextRecognitionActive: Boolean = false
+    private var isFaceRecognitionActive: Boolean = false
     private val inferenceDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val speechQueue: Queue<String> = LinkedList()
     private var lastSpokenTime: Long = 0
     private val MIN_SPEECH_INTERVAL_MS = 2000L
     private val SPEECH_RECOGNITION_DELAY = 1000L
     private var previewDataCallback: IPreviewDataCallBack? = null
+    private var lastFrameTime: Long = 0L
+
+    private lateinit var tfLite: Interpreter
+    private var registered = HashMap<String, SimilarityClassifier.Recognition>()
+    private var start = true
+    private var flipX = false
+    private var isModelQuantized = false
+    private val inputSize = 112
+    private lateinit var embeddings: Array<FloatArray>
+    private lateinit var intValues: IntArray
+    private val imageMean = 128.0f
+    private val imageStd = 128.0f
+    private val outputSize = 192
+    private lateinit var faceDetector: FaceDetector
+    private val modelFile = "mobile_face_net.tflite"
+    private var developerMode = false
+    private var distance = 1.0f
+    private val selectPicture = 1
+    private var isAddingFace: Boolean = false
 
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var speechRecognizerIntent: Intent
     private var isListening: Boolean = false
 
     private var previousDetections: MutableSet<String> = mutableSetOf()
-    private var detectedObjects: MutableMap<String, Float> = mutableMapOf()  // Map to store detected objects and their distances
+    private var detectedObjects: MutableMap<String, Float> = mutableMapOf()
+
+    private lateinit var recognizedFaceImageView: ImageView
 
     private val mCameraModeTabMap = mapOf(
         CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC to R.id.takePictureModeTv,
         CaptureMediaView.CaptureMode.MODE_CAPTURE_VIDEO to R.id.recordVideoModeTv,
         CaptureMediaView.CaptureMode.MODE_CAPTURE_AUDIO to R.id.recordAudioModeTv
     )
+
+    private fun initializeEmbeddings() {
+        embeddings = Array(1) { FloatArray(outputSize) }
+    }
 
     private val ttsListener = TextToSpeech.OnUtteranceCompletedListener {
         if (speechQueue.isNotEmpty()) {
@@ -104,11 +156,13 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     }
 
     private fun setupSpeechRecognizer() {
+
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
         speechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
         }
+
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
                 isListening = true
@@ -152,7 +206,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
             Toast.makeText(requireContext(), "Speech recognition not supported on this device", Toast.LENGTH_SHORT).show()
         }
     }
-
 
     private fun restartSpeechRecognizer() {
         lifecycleScope.launch {
@@ -275,7 +328,10 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
         textRecognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
 
+        recognizedFaceImageView = view.findViewById(R.id.imageView)
+
         initObjectDetector()
+        initFaceRecognition()
 
         setupSpeechRecognizer()
         startListeningForVoiceCommand()
@@ -315,14 +371,36 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     private fun processFrame(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat) {
         data ?: return
 
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastFrameTime < DETECTION_INTERVAL_MS) return
+        lastFrameTime = currentTime
+
         Log.d(TAG, "Processing frame with width: $width, height: $height, format: $format")
 
         lifecycleScope.launch(inferenceDispatcher) {
             try {
-                val bitmap = convertYUVToBitmap(data, width, height, format)
+                val bitmap = convertYUVToBitmap(data, width / 2, height / 2, format)
                 objectDetectorHelper.detect(bitmap, 0)
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing frame: ${e.message}")
+            }
+        }
+    }
+
+    private fun processfra(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat){
+        data ?: return
+
+        val currentTime = System.currentTimeMillis()
+        if(currentTime - lastFrameTime < DETECTION_INTERVAL_MS) return
+
+        Log.d(TAG, "processing frame with width: $width, height: $height, format: $format")
+
+        lifecycleScope.launch(inferenceDispatcher){
+            try {
+                val bitmap = convertYUVToBitmap(data, width/2, height/2, format)
+                objectDetectorHelper.detect(bitmap, 0)
+            } catch (e: Exception) {
+                Log.e(TAG, "error processing frame: ${e.message}")
             }
         }
     }
@@ -348,6 +426,631 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         }
     }
 
+    private fun initFaceRecognition() {
+        registered = HashMap()
+        tfLite = Interpreter(loadModelFile(requireContext(), modelFile))
+
+        val highAccuracyOpts = FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+            .build()
+        faceDetector = FaceDetection.getClient(highAccuracyOpts)
+
+        val button3: Button = mViewBinding.button3
+        val imageButton: ImageButton = mViewBinding.imageButton
+        val textView2: TextView = mViewBinding.textView2
+        val textAbovePreview: TextView = mViewBinding.textAbovePreview
+        val recognizedFaceImageView: ImageView = mViewBinding.imageView
+
+        button3.text = "Add Face"
+        imageButton.visibility = View.GONE
+        recognizedFaceImageView.visibility = View.GONE
+        textView2.visibility = View.GONE
+
+        button3.setOnClickListener {
+            if (button3.text == "Add Face") {
+                button3.text = "Recognize"
+                imageButton.visibility = View.VISIBLE
+                recognizedFaceImageView.visibility = View.VISIBLE
+                textView2.visibility = View.VISIBLE
+                textAbovePreview.text = "Face Preview: "
+                textView2.text = "1. Bring Face in view of Camera.\n\n2. Your Face preview will appear here.\n\n3. Click Add button to save face."
+                startFaceRecognition()
+            } else {
+                button3.text = "Add Face"
+                imageButton.visibility = View.GONE
+                recognizedFaceImageView.visibility = View.GONE
+                textView2.visibility = View.GONE
+                textAbovePreview.text = "Recognized Face:"
+                textView2.text = ""
+                stopFaceRecognition()
+            }
+        }
+
+        val actionsButton: Button = mViewBinding.button2
+        actionsButton.setOnClickListener {
+            val builder = context?.let { it1 -> androidx.appcompat.app.AlertDialog.Builder(it1) }
+            if (builder != null) {
+                builder.setTitle("Select Action:")
+            }
+
+            val names = arrayOf(
+                "View Recognition List",
+                "Update Recognition List",
+                "Save Recognitions",
+                "Load Recognitions",
+                "Clear All Recognitions",
+                "Import Photo (Beta)",
+                "Hyperparameters",
+                "Developer Mode"
+            )
+
+            if (builder != null) {
+                builder.setItems(names) { _, which ->
+                    when (which) {
+                        0 -> displayNameListView()
+                        1 -> updateNameListView()
+                        2 -> insertToSP(registered, 0)
+                        3 -> registered.putAll(readFromSP())
+                        4 -> clearNameList()
+                        5 -> loadPhoto()
+                        6 -> testHyperparameter()
+                        7 -> toggleDeveloperMode()
+                    }
+                }
+            }
+
+            if (builder != null) {
+                builder.setPositiveButton("OK", null)
+            }
+            if (builder != null) {
+                builder.setNegativeButton("Cancel", null)
+            }
+
+            val dialog = builder?.create()
+            dialog?.show()
+        }
+
+        mViewBinding.imageButton.setOnClickListener {
+            addFace()
+        }
+    }
+
+    private fun toggleDeveloperMode() {
+        developerMode = !developerMode
+        Toast.makeText(requireContext(), "Developer Mode: ${if (developerMode) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun displayNameListView() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (builder != null) {
+            builder.setTitle(if (registered.isEmpty()) "No Faces Added!!" else "Recognitions:")
+        }
+
+        val names = Array(registered.size) { i -> registered.keys.elementAt(i) }
+        if (builder != null) {
+            builder.setItems(names, null)
+        }
+
+        if (builder != null) {
+            builder.setPositiveButton("OK", null)
+        }
+
+        val dialog = builder?.create()
+        if (dialog != null) {
+            dialog.show()
+        }
+    }
+
+    private fun clearNameList() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (builder != null) {
+            builder.setTitle("Do you want to delete all Recognitions?")
+        }
+        if (builder != null) {
+            builder.setPositiveButton("Delete All") { _, _ ->
+                registered.clear()
+                Toast.makeText(context, "Recognitions Cleared", Toast.LENGTH_SHORT).show()
+            }
+        }
+        insertToSP(registered, 1)
+        if (builder != null) {
+            builder.setNegativeButton("Cancel", null)
+        }
+        val dialog = builder?.create()
+        if (dialog != null) {
+            dialog.show()
+        }
+    }
+
+    private fun updateNameListView() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (registered.isEmpty()) {
+            builder?.setTitle("No Faces Added!!")
+            builder?.setPositiveButton("OK", null)
+        } else {
+            builder?.setTitle("Select Recognition to delete:")
+
+            val namesWithNumbers = Array(registered.size) { i ->
+                val recognition = registered.values.elementAt(i)
+                val name = registered.keys.elementAt(i)
+                val phoneNumber = recognition.phoneNumber ?: "N/A"
+                "$name ($phoneNumber)"
+            }
+
+            val checkedItems = BooleanArray(registered.size)
+
+            builder?.setMultiChoiceItems(namesWithNumbers, checkedItems) { _, which, isChecked ->
+                checkedItems[which] = isChecked
+            }
+
+            builder?.setPositiveButton("OK") { _, _ ->
+                for (i in checkedItems.indices) {
+                    if (checkedItems[i]) {
+                        registered.remove(registered.keys.elementAt(i))
+                    }
+                }
+                insertToSP(registered, 2)
+                Toast.makeText(context, "Recognitions Updated", Toast.LENGTH_SHORT).show()
+            }
+
+            builder?.setNegativeButton("Cancel", null)
+        }
+
+        val dialog = builder?.create()
+        dialog?.show()
+    }
+
+    private fun loadPhoto() {
+        start = false
+        val intent = Intent().apply {
+            type = "image/*"
+            action = Intent.ACTION_GET_CONTENT
+        }
+        startActivityForResult(Intent.createChooser(intent, "Select Picture"), selectPicture)
+    }
+
+    private fun testHyperparameter() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (builder != null) {
+            builder.setTitle("Select Hyperparameter:")
+        }
+
+        val names = arrayOf("Maximum Nearest Neighbour Distance")
+
+        if (builder != null) {
+            builder.setItems(names) { _, which ->
+                if (which == 0) {
+                    hyperparameters()
+                }
+            }
+        }
+
+        if (builder != null) {
+            builder.setPositiveButton("OK", null)
+        }
+        if (builder != null) {
+            builder.setNegativeButton("Cancel", null)
+        }
+
+        val dialog = builder?.create()
+        if (dialog != null) {
+            dialog.show()
+        }
+    }
+
+    private fun hyperparameters() {
+        val builder = context?.let { androidx.appcompat.app.AlertDialog.Builder(it) }
+        if (builder != null) {
+            builder.setTitle("Euclidean Distance")
+        }
+        if (builder != null) {
+            builder.setMessage("0.00 -> Perfect Match\n1.00 -> Default\nTurn On Developer Mode to find optimum value\n\nCurrent Value:")
+        }
+
+        val input = EditText(context)
+        input.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        if (builder != null) {
+            builder.setView(input)
+        }
+
+        val sharedPref = requireActivity().getSharedPreferences("Distance", Context.MODE_PRIVATE)
+        distance = sharedPref.getFloat("distance", 1.00f)
+        input.setText(distance.toString())
+
+        if (builder != null) {
+            builder.setPositiveButton("Update") { _, _ ->
+                distance = input.text.toString().toFloat()
+
+                val editor = sharedPref.edit()
+                editor.putFloat("distance", distance)
+                editor.apply()
+            }
+        }
+        if (builder != null) {
+            builder.setNegativeButton("Cancel") { dialog, _ ->
+                dialog.cancel()
+            }
+        }
+
+        if (builder != null) {
+            builder.show()
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun loadModelFile(activity: Context, modelFile: String): MappedByteBuffer {
+        val fileDescriptor = activity.assets.openFd(modelFile)
+        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+        val fileChannel = inputStream.channel
+        val startOffset = fileDescriptor.startOffset
+        val declaredLength = fileDescriptor.declaredLength
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+    }
+
+    private fun startFaceRecognition() {
+        if (!isFaceRecognitionActive) {
+            isFaceRecognitionActive = true
+            initializeEmbeddings()
+            Toast.makeText(requireContext(), "Face Recognition Started", Toast.LENGTH_SHORT).show()
+
+            previewDataCallback = object : IPreviewDataCallBack {
+                override fun onPreviewData(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat) {
+                    data?.let {
+                        processFaceRecognition(it, width, height, format)
+                    }
+                }
+            }
+            getCurrentCamera()?.addPreviewDataCallBack(previewDataCallback!!)
+        }
+    }
+
+    private fun stopFaceRecognition() {
+        isFaceRecognitionActive = false
+        previewDataCallback?.let {
+            getCurrentCamera()?.removePreviewDataCallBack(it)
+            previewDataCallback = null
+        }
+        Toast.makeText(requireContext(), "Face Recognition Stopped", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun promptForPhoneNumber(name: String) {
+        val builder = AlertDialog.Builder(requireContext())
+        builder.setTitle("Enter Phone Number for $name")
+
+        val input = EditText(requireContext())
+        input.inputType = InputType.TYPE_CLASS_PHONE
+        builder.setView(input)
+
+        builder.setPositiveButton("Add") { _, _ ->
+            val phoneNumber = input.text.toString()
+            saveFace(name, phoneNumber)
+        }
+
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            dialog.cancel()
+        }
+
+        builder.show()
+    }
+
+    private fun saveFace(name: String, phoneNumber: String) {
+
+        if (!::embeddings.isInitialized) {
+            initializeEmbeddings()
+        }
+
+        val result = SimilarityClassifier.Recognition("0", name, -1f)
+        result.extra = embeddings
+        result.phoneNumber = phoneNumber
+        registered[name] = result
+        insertToSP(registered, 0)
+        start = true
+        Toast.makeText(requireContext(), "$name with Phone Number $phoneNumber has been added", Toast.LENGTH_SHORT).show()
+    }
+
+
+    private fun insertToSP(jsonMap: HashMap<String, SimilarityClassifier.Recognition>, mode: Int) {
+        if (mode == 1) jsonMap.clear()
+        else if (mode == 0) jsonMap.putAll(readFromSP())
+
+        val jsonString = Gson().toJson(jsonMap)
+        val sharedPreferences = requireContext().getSharedPreferences("HashMap", Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        editor.putString("map", jsonString)
+        editor.apply()
+        Toast.makeText(requireContext(), "Recognitions Saved", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun readFromSP(): HashMap<String, SimilarityClassifier.Recognition> {
+        val sharedPreferences = requireContext().getSharedPreferences("HashMap", Context.MODE_PRIVATE)
+        val defValue = Gson().toJson(HashMap<String, SimilarityClassifier.Recognition>())
+        val json = sharedPreferences.getString("map", defValue)
+        val token = object : TypeToken<HashMap<String, SimilarityClassifier.Recognition>>() {}
+        val retrievedMap: HashMap<String, SimilarityClassifier.Recognition> = Gson().fromJson(json, token.type)
+
+        retrievedMap.forEach { (key, value) ->
+            val output = Array(1) { FloatArray(outputSize) }
+            val arrayList = value.extra as ArrayList<*>
+            val floatArray = arrayList[0] as ArrayList<*>
+            for (counter in floatArray.indices) {
+                output[0][counter] = (floatArray[counter] as Double).toFloat()
+            }
+            value.extra = output
+        }
+
+        Toast.makeText(requireContext(), "Recognitions Loaded", Toast.LENGTH_SHORT).show()
+        return retrievedMap
+    }
+
+    private fun processFaceRecognition(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat) {
+        data ?: return
+
+        val currentTime = System.currentTimeMillis()
+        val frameRate = if (lastFrameTime > 0) 1000 / (currentTime - lastFrameTime).toFloat() else 0f
+        if (currentTime - lastFrameTime < DETECTION_INTERVAL_MS) return
+        lastFrameTime = currentTime
+
+        Log.d(TAG, "Current Frame Rate: $frameRate FPS")
+
+        lifecycleScope.launch(inferenceDispatcher) {
+            try {
+                val bitmap = convertYUVToBitmap(data, width , height , format)
+
+                analyzeFace(bitmap)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing frame: ${e.message}")
+            }
+        }
+    }
+
+    private fun analyzeFace(bitmap: Bitmap) {
+        val inputImage = InputImage.fromBitmap(bitmap, 0)
+        faceDetector.process(inputImage)
+            .addOnSuccessListener { faces ->
+                if (faces.isNotEmpty()) {
+                    Log.d(TAG, "Face detected: ${faces.size}")
+                    val face = faces[0]
+                    val boundingBox = RectF(face.boundingBox)
+                    val croppedFace = getCropBitmapByCPU(bitmap, boundingBox)
+                    var scaled = getResizedBitmap(croppedFace, inputSize, inputSize)
+                    if (flipX) {
+                        scaled = rotateBitmap(scaled, 0, flipX, false)
+                    }
+                    if (start) {
+                        Log.d(TAG, "Starting recognition for cropped face.")
+                        recognizeImage(scaled)
+                    }
+                } else {
+                    Log.d(TAG, "No face detected in the current frame.")
+                    mViewBinding.textView.text = if (registered.isEmpty()) "Add Face" else "No Face Detected!"
+                }
+            }
+            .addOnFailureListener {
+                Log.e(TAG, "Face detection failed: ${it.message}")
+            }
+    }
+
+    private fun YUV_420_888toNV21(image: Image): ByteArray {
+        val width = image.width
+        val height = image.height
+        val ySize = width * height
+        val uvSize = width * height / 4
+
+        val nv21 = ByteArray(ySize + uvSize * 2)
+
+        val yBuffer = image.planes[0].buffer
+        val uBuffer = image.planes[1].buffer
+        val vBuffer = image.planes[2].buffer
+
+        val rowStride = image.planes[0].rowStride
+
+        var pos = 0
+
+        if (rowStride == width) {
+            yBuffer.get(nv21, 0, ySize)
+            pos += ySize
+        } else {
+            var yBufferPos = -rowStride
+            while (pos < ySize) {
+                yBufferPos += rowStride
+                yBuffer.position(yBufferPos)
+                yBuffer.get(nv21, pos, width)
+                pos += width
+            }
+        }
+
+        val uvRowStride = image.planes[2].rowStride
+        val pixelStride = image.planes[2].pixelStride
+
+        if (pixelStride == 2 && uvRowStride == width && uBuffer[0] == vBuffer[1]) {
+            val savePixel = vBuffer[1]
+            vBuffer.put(1, (savePixel.toInt() xor -1).toByte())
+            if (uBuffer[0] == (savePixel.toInt() xor -1).toByte()) {
+                vBuffer.put(1, savePixel)
+                vBuffer.position(0)
+                uBuffer.position(0)
+                vBuffer.get(nv21, ySize, 1)
+                uBuffer.get(nv21, ySize + 1, uBuffer.remaining())
+                return nv21
+            }
+            vBuffer.put(1, savePixel)
+        }
+
+        for (row in 0 until height / 2) {
+            for (col in 0 until width / 2) {
+                val vuPos = col * pixelStride + row * uvRowStride
+                nv21[pos++] = vBuffer[vuPos]
+                nv21[pos++] = uBuffer[vuPos]
+            }
+        }
+
+        return nv21
+    }
+
+    private fun toBitmap(image: Image): Bitmap {
+        val nv21 = YUV_420_888toNV21(image)
+
+        val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+
+        val out = ByteArrayOutputStream()
+        yuvImage.compressToJpeg(Rect(0, 0, yuvImage.width, yuvImage.height), 75, out)
+
+        val imageBytes = out.toByteArray()
+        return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+    }
+
+    private fun recognizeImage(bitmap: Bitmap) {
+        mViewBinding.imageView.setImageBitmap(bitmap)
+
+        Log.d(TAG, "Running recognition on bitmap of size: ${bitmap.width}x${bitmap.height}")
+
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
+        mViewBinding.imageView.setImageBitmap(resizedBitmap)
+
+        val imgData = ByteBuffer.allocateDirect(1 * inputSize * inputSize * 3 * 4)
+        imgData.order(ByteOrder.nativeOrder())
+
+        intValues = IntArray(inputSize * inputSize)
+
+        resizedBitmap.getPixels(intValues, 0, resizedBitmap.width, 0, 0, resizedBitmap.width, resizedBitmap.height)
+
+        imgData.rewind()
+
+        for (i in 0 until inputSize) {
+            for (j in 0 until inputSize) {
+                val pixelValue = intValues[i * inputSize + j]
+                if (isModelQuantized) {
+                    imgData.put((pixelValue shr 16 and 0xFF).toByte())
+                    imgData.put((pixelValue shr 8 and 0xFF).toByte())
+                    imgData.put((pixelValue and 0xFF).toByte())
+                } else {
+                    imgData.putFloat(((pixelValue shr 16 and 0xFF) - imageMean) / imageStd)
+                    imgData.putFloat(((pixelValue shr 8 and 0xFF) - imageMean) / imageStd)
+                    imgData.putFloat(((pixelValue and 0xFF) - imageMean) / imageStd)
+                }
+            }
+        }
+
+        val inputArray = arrayOf<Any>(imgData)
+        val outputMap = HashMap<Int, Any>()
+        embeddings = Array(1) { FloatArray(outputSize) }
+
+        outputMap[0] = embeddings
+
+        tfLite.runForMultipleInputsOutputs(inputArray, outputMap)
+
+        var distanceLocal = Float.MAX_VALUE
+
+        if (registered.isNotEmpty()) {
+            val nearest = findNearest(embeddings[0])
+
+            val name = nearest[0].first
+            distanceLocal = nearest[0].second
+            Log.d(TAG, "Recognition result: $name with distance $distanceLocal")
+            mViewBinding.textView.text = if (developerMode) {
+                if (distanceLocal < distance) {
+                    "Nearest: $name\nDist: %.3f".format(distanceLocal) +
+                            "\n2nd Nearest: ${nearest[1].first}\nDist: %.3f".format(nearest[1].second)
+                } else {
+                    "Unknown\nDist: %.3f".format(distanceLocal) +
+                            "\nNearest: $name\nDist: %.3f".format(distanceLocal) +
+                            "\n2nd Nearest: ${nearest[1].first}\nDist: %.3f".format(nearest[1].second)
+                }
+            } else {
+                if (distanceLocal < distance) {
+                    name
+                } else {
+                    "Unknown"
+                }
+            }
+        }
+    }
+
+    private fun findNearest(emb: FloatArray): List<Pair<String, Float>> {
+        val neighbourList = mutableListOf<Pair<String, Float>>()
+        var ret: Pair<String, Float>? = null
+        var prevRet: Pair<String, Float>? = null
+
+        registered.forEach { (name, value) ->
+            val knownEmb = (value.extra as Array<FloatArray>)[0]
+
+            var distance = 0f
+            for (i in emb.indices) {
+                val diff = emb[i] - knownEmb[i]
+                distance += diff * diff
+            }
+            distance = Math.sqrt(distance.toDouble()).toFloat()
+
+            if (ret == null || distance < ret!!.second) {
+                prevRet = ret
+                ret = Pair(name, distance)
+            }
+        }
+
+        if (prevRet == null) prevRet = ret
+
+        neighbourList.add(ret!!)
+        neighbourList.add(prevRet!!)
+
+        return neighbourList
+    }
+
+    private fun getResizedBitmap(bm: Bitmap, newWidth: Int, newHeight: Int): Bitmap {
+        val width = bm.width
+        val height = bm.height
+        val scaleWidth = newWidth.toFloat() / width
+        val scaleHeight = newHeight.toFloat() / height
+        val matrix = Matrix()
+        matrix.postScale(scaleWidth, scaleHeight)
+        val resizedBitmap = Bitmap.createBitmap(bm, 0, 0, width, height, matrix, false)
+        bm.recycle()
+        return resizedBitmap
+    }
+
+    private fun getCropBitmapByCPU(source: Bitmap, cropRectF: RectF): Bitmap {
+        val resultBitmap = Bitmap.createBitmap(cropRectF.width().toInt(), cropRectF.height().toInt(), Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(resultBitmap)
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+        paint.color = Color.WHITE
+        canvas.drawRect(RectF(0f, 0f, cropRectF.width(), cropRectF.height()), paint)
+        val matrix = Matrix()
+        matrix.postTranslate(-cropRectF.left, -cropRectF.top)
+        canvas.drawBitmap(source, matrix, paint)
+        if (!source.isRecycled) {
+            source.recycle()
+        }
+        return resultBitmap
+    }
+
+    private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int, flipX: Boolean, flipY: Boolean): Bitmap {
+        val matrix = Matrix()
+        matrix.postRotate(rotationDegrees.toFloat())
+        matrix.postScale(if (flipX) -1.0f else 1.0f, if (flipY) -1.0f else 1.0f)
+        val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        if (rotatedBitmap != bitmap) {
+            bitmap.recycle()
+        }
+        return rotatedBitmap
+    }
+
+    private fun addFace() {
+        start = false
+        val builder = AlertDialog.Builder(requireContext())
+        builder.setTitle("Enter Name")
+        val nameInput = EditText(requireContext())
+        nameInput.inputType = InputType.TYPE_CLASS_TEXT
+        builder.setView(nameInput)
+        builder.setPositiveButton("NEXT") { _, _ ->
+            val name = nameInput.text.toString()
+            promptForPhoneNumber(name)
+        }
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            start = true
+            dialog.cancel()
+        }
+        builder.show()
+    }
+
     private fun initObjectDetector() {
         lifecycleScope.launch(inferenceDispatcher) {
             objectDetectorHelper = ObjectDetectorHelper(
@@ -368,7 +1071,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                             if (detections.isNotEmpty()) {
                                 Log.d(TAG, "Detections found: ${detections.size}")
                                 val detectionsWithDistance = detections.map { detection ->
-                                    val distance = objectDetectorHelper.estimateDistance(detection.boundingBox, 0.2f) // Update objectRealHeight as needed
+                                    val distance = objectDetectorHelper.estimateDistance(detection.boundingBox, 0.2f)
                                     DetectionResult(detection, distance)
                                 }
                                 updateOverlayView(detectionsWithDistance, imageHeight, imageWidth)
@@ -385,13 +1088,13 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
     private fun handleDetections(detections: List<DetectionResult>) {
         val currentDetections = mutableSetOf<String>()
-        detectedObjects.clear()  // Clear previous detections
+        detectedObjects.clear()
 
         for (result in detections) {
             val detection = result.detection
             detection.categories.firstOrNull()?.label?.let { label ->
                 currentDetections.add(label)
-                detectedObjects[label] = result.distance  // Store distance
+                detectedObjects[label] = result.distance
             }
         }
 
@@ -484,7 +1187,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     }
 
     private fun startTextDetection() {
-        if (!isTextRecognitionActive) {  // Check if already active
+        if (!isTextRecognitionActive) {
             isTextRecognitionActive = true
             Toast.makeText(requireContext(), "Text Detection Started", Toast.LENGTH_SHORT).show()
 
@@ -595,7 +1298,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     private fun stopTextDetection() {
         if (isTextRecognitionActive) {
             isTextRecognitionActive = false
-            lifecycleScope.coroutineContext.cancelChildren()  // Cancels all child coroutines
+            lifecycleScope.coroutineContext.cancelChildren()
             Toast.makeText(requireContext(), "Text Detection Stopped", Toast.LENGTH_SHORT).show()
         }
     }
@@ -798,11 +1501,21 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     override fun onDestroyView() {
         super.onDestroyView()
         mMoreMenu?.dismiss()
+        tfLite.close()
+        faceDetector.close()
+        textRecognizer.close()
+        textToSpeech.stop()
+        textToSpeech.shutdown()
         stopAllDetections()
         stopLiveObjectDetection()
         inferenceDispatcher.close()
         speechRecognizer.destroy()
-
+        previewDataCallback?.let {
+            getCurrentCamera()?.removePreviewDataCallBack(it)
+            previewDataCallback = null
+        }
+        mRecTimer?.cancel()
+        mRecTimer = null
         lifecycleScope.coroutineContext.cancelChildren()
     }
 
@@ -816,6 +1529,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
             Toast.makeText(requireContext(), "Object Detection Stopped", Toast.LENGTH_SHORT).show()
         }
     }
+
     override fun onClick(v: View?) {
         if (!isCameraOpened()) {
             ToastUtils.show("camera not worked!")
@@ -836,7 +1550,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                     mViewBinding.resolutionBtn -> showResolutionDialog()
                     mViewBinding.albumPreviewIv -> goToGallery()
                     else -> {
-                        // No need to trigger detection manually
+
                     }
                 }
             }
@@ -879,7 +1593,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
             }
         }
     }
-
 
     private fun showResolutionDialog() {
         mMoreMenu?.dismiss()
@@ -948,7 +1661,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     }
 
     private fun showRecentMedia(isImage: Boolean? = null) {
-        // Implement logic to show recent media if needed
+
     }
 
     private fun updateCameraModeSwitchUI() {

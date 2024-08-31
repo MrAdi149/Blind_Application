@@ -13,13 +13,14 @@
         android:id="@+id/toolbar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:visibility="gone"
         android:background="?attr/colorPrimary"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:title="Camera App"
-        app:titleTextColor="@android:color/white"/>
+        android:visibility="gone"
+        app:titleTextColor="@android:color/white"
+        android:elevation="4dp"/>
 
     <!-- Camera View -->
     <FrameLayout
@@ -43,39 +44,120 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- UVC Logo -->
-    <ImageView
-        android:id="@+id/uvcLogoIv"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:src="@mipmap/ic_uvc"
-        app:layout_constraintBottom_toBottomOf="@+id/overlay"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/cameraViewContainer" />
-
-    <!-- Control Panel -->
-    <View
-        android:id="@+id/controlPanelLayout"
+    <!-- Centered Content Layout -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/centeredLayout"
         android:layout_width="0dp"
-        android:layout_height="85dp"
-        android:background="@color/black"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_height="0dp"
+        android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintBottom_toBottomOf="parent">
 
-    <!-- Capture Button -->
-    <com.jiangdg.ausbc.widget.CaptureMediaView
-        android:id="@+id/captureBtn"
-        android:layout_width="76dp"
-        android:layout_height="76dp"
-        app:layout_constraintBottom_toBottomOf="@id/controlPanelLayout"
-        app:layout_constraintEnd_toEndOf="@id/controlPanelLayout"
-        app:layout_constraintHorizontal_bias="0.513"
-        app:layout_constraintStart_toStartOf="@id/controlPanelLayout"
-        app:layout_constraintTop_toTopOf="@id/controlPanelLayout"
-        app:layout_constraintVertical_bias="0.0" />
+        <TextView
+            android:id="@+id/textAbovePreview"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Recognized Face:"
+            android:textColor="@color/black"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toTopOf="@+id/imageView"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <!-- Face Preview -->
+        <ImageView
+            android:id="@+id/imageView"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:layout_marginBottom="16dp"
+            android:layout_marginTop="155dp"
+            android:background="@drawable/rounded_corner_background"
+            android:scaleType="centerInside"
+            android:elevation="4dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Recognized Name -->
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/purple_500"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintTop_toBottomOf="@id/imageView"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Action Buttons Layout -->
+        <LinearLayout
+            android:id="@+id/linearLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintTop_toBottomOf="@id/textView"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Recognize/Add Face Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Add Face"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_marginEnd="8dp"
+                app:cornerRadius="12dp"
+                app:strokeColor="@color/purple_500"
+                app:strokeWidth="2dp"
+                android:textColor="@color/purple_500"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/button2"
+                android:text="ACTIONS"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_marginEnd="8dp"
+                app:cornerRadius="12dp"
+                app:strokeColor="@color/purple_500"
+                app:strokeWidth="2dp"
+                android:textColor="@color/purple_500"/>
+
+            <!-- Add Face Button -->
+            <ImageButton
+                android:id="@+id/imageButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/rounded_corner_background"
+                android:elevation="4dp"
+                android:contentDescription="Add Face"
+                app:srcCompat="@android:drawable/ic_input_add"
+                app:tint="@color/purple_500" />
+        </LinearLayout>
+
+        <!-- Additional Information TextView -->
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textAlignment="center"
+            app:layout_constraintTop_toBottomOf="@id/linearLayout"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_marginBottom="16dp" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Start and Stop Buttons -->
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -90,10 +172,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
-            android:visibility="gone"
             android:text="Start Detection"
             android:backgroundTint="?attr/colorPrimary"
             android:textColor="@android:color/white"
+            android:elevation="4dp"
+            android:visibility="gone"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"/>
 
@@ -102,10 +185,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
-            android:visibility="gone"
             android:text="Stop Detection"
             android:backgroundTint="?attr/colorAccent"
             android:textColor="@android:color/white"
+            android:elevation="4dp"
+            android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"/>
     </androidx.constraintlayout.widget.ConstraintLayout>
@@ -130,6 +214,7 @@
             android:text="Photo"
             android:textColor="@color/white"
             android:textSize="14sp"
+            android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/recordVideoModeTv"
             app:layout_constraintStart_toStartOf="parent"
@@ -146,6 +231,7 @@
             android:text="Video"
             android:textColor="@color/white"
             android:textSize="14sp"
+            android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/recordAudioModeTv"
             app:layout_constraintStart_toEndOf="@id/takePictureModeTv"
@@ -162,11 +248,34 @@
             android:text="Audio"
             android:textColor="@color/white"
             android:textSize="14sp"
+            android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@id/recordVideoModeTv"
             app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Capture Button -->
+    <com.jiangdg.ausbc.widget.CaptureMediaView
+        android:id="@+id/captureBtn"
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        app:layout_constraintBottom_toBottomOf="@id/controlPanelLayout"
+        app:layout_constraintEnd_toEndOf="@id/controlPanelLayout"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="@id/controlPanelLayout"
+        app:layout_constraintTop_toTopOf="@id/controlPanelLayout"
+        app:layout_constraintVertical_bias="0.0" />
+
+    <!-- Control Panel -->
+    <View
+        android:id="@+id/controlPanelLayout"
+        android:layout_width="0dp"
+        android:layout_height="85dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:elevation="8dp"/>
 
     <!-- Toolbar Group -->
     <androidx.constraintlayout.widget.Group
@@ -191,7 +300,6 @@
         style="@style/Camera2TopButtonStyle"
         android:src="@mipmap/camera_toolbar_filter"
         android:visibility="gone"
-
         app:layout_constraintBottom_toBottomOf="@id/toolbar"
         app:layout_constraintEnd_toStartOf="@id/cameraTypeBtn"
         app:layout_constraintTop_toTopOf="@id/toolbar" />
@@ -201,7 +309,6 @@
         style="@style/Camera2TopButtonStyle"
         android:src="@mipmap/camera_toolbar_type"
         android:visibility="gone"
-
         app:layout_constraintBottom_toBottomOf="@id/toolbar"
         app:layout_constraintEnd_toStartOf="@id/voiceBtn"
         app:layout_constraintTop_toTopOf="@id/toolbar" />
@@ -211,7 +318,6 @@
         style="@style/Camera2TopButtonStyle"
         android:src="@mipmap/camera_voice_off"
         android:visibility="gone"
-
         app:layout_constraintBottom_toBottomOf="@id/toolbar"
         app:layout_constraintEnd_toStartOf="@id/resolutionBtn"
         app:layout_constraintTop_toTopOf="@id/toolbar" />
@@ -221,16 +327,21 @@
         style="@style/Camera2TopButtonStyle"
         android:src="@mipmap/camera_resolution"
         android:visibility="gone"
-
         app:layout_constraintBottom_toBottomOf="@id/toolbar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@id/toolbar" />
 
-    <!-- Bottom Sheet for Info -->
-    <include
-        android:id="@+id/bottom_sheet_layout"
-        layout="@layout/info_bottom_sheet"
-        android:visibility="gone" />
+    <!-- UVC Logo -->
+    <ImageView
+        android:id="@+id/uvcLogoIv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:src="@mipmap/ic_uvc"
+        app:layout_constraintBottom_toBottomOf="@+id/overlay"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/cameraViewContainer" />
 
     <!-- Frame Rate TextView -->
     <com.google.android.material.textview.MaterialTextView
@@ -251,7 +362,7 @@
         android:layout_marginStart="40dp"
         android:layout_marginEnd="40dp"
         android:layout_marginBottom="20dp"
-        app:layout_constraintBottom_toTopOf="@+id/controlPanelLayout"
+        app:layout_constraintBottom_toTopOf="@id/controlPanelLayout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -326,4 +437,5 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/toolbar" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
