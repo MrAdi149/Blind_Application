@@ -25,4 +25,4 @@
 <h3>Usage</h3>
 <h4>Start the app and grant necessary permissions (Camera and Microphone).</h4>
 <h4>Use vocal commands like "start object detection" or "read text" to begin detection/recognition.</h4>
-<h4>Control detection/recognition parameters through the provided UI controls.</h4>
+<h4>Control detection/recognition parameters through the provided UI controls.
