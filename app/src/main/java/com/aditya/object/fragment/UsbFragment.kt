@@ -378,7 +378,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
         lifecycleScope.launch(inferenceDispatcher) {
             try {
-                val bitmap = convertYUVToBitmap(data, width / 2, height / 2, format)
+                val bitmap = convertYUVToBitmap(data, width, height, format)
                 objectDetectorHelper.detect(bitmap, 0)
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing frame: ${e.message}")
@@ -728,7 +728,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         start = true
         Toast.makeText(requireContext(), "$name with Phone Number $phoneNumber has been added", Toast.LENGTH_SHORT).show()
     }
-
 
     private fun insertToSP(jsonMap: HashMap<String, SimilarityClassifier.Recognition>, mode: Int) {
         if (mode == 1) jsonMap.clear()
