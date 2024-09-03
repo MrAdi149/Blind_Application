@@ -90,6 +90,7 @@ import java.util.*
 import java.util.concurrent.Executors
 
 class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnViewClickListener {
+
     private var mMoreMenu: PopupWindow? = null
     private var isCapturingVideoOrAudio: Boolean = false
     private var isPlayingMic: Boolean = false
@@ -247,6 +248,8 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                 stopAllDetections()
                 stopObjectDetection()
             }
+            "add face" ->startAddFaceProcess()
+            "read face"->startFaceRecognition()
             else -> {
                 Log.d(TAG, "Unknown command: $command")
             }
@@ -331,7 +334,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
         initObjectDetector()
         initFaceRecognition()
-
         setupSpeechRecognizer()
         startListeningForVoiceCommand()
     }
@@ -344,6 +346,35 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         } else {
             false
         }
+    }
+
+    private fun startAddFaceProcess(){
+        textToSpeech.speak(
+            "Make your face infront of the camera",
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "ADD_FACE"
+        )
+        Toast.makeText(requireContext(), "Position your face in front of the camera", Toast.LENGTH_SHORT).show()
+
+        mViewBinding.button3.performClick()
+
+        lifecycleScope.launch {
+            delay(10000)
+            mViewBinding.imageButton.performClick()
+            captureFaceAutomatically()
+        }
+    }
+
+    private fun captureFaceAutomatically(){
+        textToSpeech.speak(
+            "Enter Your Name",
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "ENTER_NAME"
+        )
+
+        addFace()
     }
 
     private fun startObjectDetection() {
@@ -378,7 +409,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
         lifecycleScope.launch(inferenceDispatcher) {
             try {
-                val bitmap = convertYUVToBitmap(data, width, height, format)
+                val bitmap = convertYUVToBitmap(data, width , height, format)
                 objectDetectorHelper.detect(bitmap, 0)
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing frame: ${e.message}")
@@ -702,9 +733,13 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         input.inputType = InputType.TYPE_CLASS_PHONE
         builder.setView(input)
 
-        builder.setPositiveButton("Add") { _, _ ->
+        builder.setPositiveButton("SAVE") { _, _ ->
             val phoneNumber = input.text.toString()
-            saveFace(name, phoneNumber)
+            if (phoneNumber.length == 10) {
+                saveFace(name, phoneNumber)
+            } else {
+                Toast.makeText(requireContext(), "Please enter a 10-digit phone number.", Toast.LENGTH_SHORT).show()
+            }
         }
 
         builder.setNegativeButton("Cancel") { dialog, _ ->
@@ -727,6 +762,7 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         insertToSP(registered, 0)
         start = true
         Toast.makeText(requireContext(), "$name with Phone Number $phoneNumber has been added", Toast.LENGTH_SHORT).show()
+        startFaceRecognition()
     }
 
     private fun insertToSP(jsonMap: HashMap<String, SimilarityClassifier.Recognition>, mode: Int) {
@@ -1481,11 +1517,15 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
     override fun onDestroyView() {
         super.onDestroyView()
         mMoreMenu?.dismiss()
+        clearDestroy()
+        lifecycleScope.coroutineContext.cancelChildren()
+    }
+
+    private fun clearDestroy(){
         tfLite.close()
         faceDetector.close()
         textRecognizer.close()
         textToSpeech.stop()
-        textToSpeech.shutdown()
         stopAllDetections()
         stopLiveObjectDetection()
         inferenceDispatcher.close()
@@ -1496,7 +1536,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
         }
         mRecTimer?.cancel()
         mRecTimer = null
-        lifecycleScope.coroutineContext.cancelChildren()
     }
 
     private fun stopObjectDetection() {
@@ -1743,13 +1782,6 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
                 }
             }, 1000, 1000)
         }
-    }
-
-    override fun onDestroy() {
-        textToSpeech.stop()
-        textToSpeech.shutdown()
-        textRecognizer.close()
-        super.onDestroy()
     }
 
     private fun stopMediaTimer() {

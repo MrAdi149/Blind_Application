@@ -1,1070 +1,856 @@
-package com.aditya.`object`.fragment
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:7886976431312498614",
+      "lastPropertyId": "4:1044002615928688033",
+      "name": "FaceImageRecord",
+      "properties": [
+        {
+          "id": "1:6533718932659133037",
+          "name": "recordID",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:1879665807004012985",
+          "name": "personID",
+          "indexId": "1:4574755327814671272",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "3:3883179078775366301",
+          "name": "personName",
+          "type": 9
+        },
+        {
+          "id": "4:1044002615928688033",
+          "name": "faceEmbedding",
+          "indexId": "2:1210613089703466990",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:5724033975412775664",
+      "lastPropertyId": "4:1955098665124372966",
+      "name": "PersonRecord",
+      "properties": [
+        {
+          "id": "1:7617310022622233298",
+          "name": "personID",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:4766740777198822324",
+          "name": "personName",
+          "type": 9
+        },
+        {
+          "id": "3:7309860671533523406",
+          "name": "numImages",
+          "type": 6
+        },
+        {
+          "id": "4:1955098665124372966",
+          "name": "personImage",
+          "type": 23
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "2:5724033975412775664",
+  "lastIndexId": "2:1210613089703466990",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
-import android.content.ActivityNotFoundException
-import android.content.Intent
+
+
+
+
+
+
+
+
+
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:7886976431312498614",
+      "lastPropertyId": "4:1044002615928688033",
+      "name": "FaceImageRecord",
+      "properties": [
+        {
+          "id": "1:6533718932659133037",
+          "name": "recordID",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:1879665807004012985",
+          "name": "personID",
+          "indexId": "1:4574755327814671272",
+          "type": 6,
+          "flags": 8
+        },
+        {
+          "id": "3:3883179078775366301",
+          "name": "personName",
+          "type": 9
+        },
+        {
+          "id": "4:1044002615928688033",
+          "name": "faceEmbedding",
+          "indexId": "2:1210613089703466990",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:5724033975412775664",
+      "lastPropertyId": "5:6214334937147888472",
+      "name": "PersonRecord",
+      "properties": [
+        {
+          "id": "1:7617310022622233298",
+          "name": "personID",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:4766740777198822324",
+          "name": "personName",
+          "type": 9
+        },
+        {
+          "id": "3:7309860671533523406",
+          "name": "numImages",
+          "type": 6
+        },
+        {
+          "id": "5:6214334937147888472",
+          "name": "addTime",
+          "type": 6
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "2:5724033975412775664",
+  "lastIndexId": "2:1210613089703466990",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [
+    1955098665124372966
+  ],
+  "retiredRelationUids": [],
+  "version": 1
+}
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.data
+
+import io.objectbox.annotation.Entity
+import io.objectbox.annotation.HnswIndex
+import io.objectbox.annotation.Id
+import io.objectbox.annotation.Index
+
+@Entity
+data class FaceImageRecord(
+    // primary-key of FaceImageRecord
+    @Id var recordID: Long = 0,
+
+    // personId is derived from PersonRecord
+    @Index var personID: Long = 0,
+    var personName: String = "",
+
+    // the FaceNet-512 model provides a 512-dimensional embedding
+    // the FaceNet model provides a 128-dimensional embedding
+    @HnswIndex(dimensions = 512) var faceEmbedding: FloatArray = floatArrayOf()
+)
+
+@Entity
+data class PersonRecord(
+    // primary-key
+    @Id var personID: Long = 0,
+    var personName: String = "",
+
+    // number of images selected by the user
+    // under the name of the person
+    var numImages: Long = 0,
+
+    // time when the record was added
+    var addTime: Long = 0
+)
+
+data class RecognitionMetrics(
+    val timeFaceDetection: Long,
+    val timeVectorSearch: Long,
+    val timeFaceEmbedding: Long
+)
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.data
+
+class ImagesVectorDB {
+
+    private val imagesBox = ObjectBoxStore.store.boxFor(FaceImageRecord::class.java)
+
+    fun addFaceImageRecord(record: FaceImageRecord) {
+        imagesBox.put(record)
+    }
+
+    fun getNearestEmbeddingPersonName(embedding: FloatArray): FaceImageRecord? {
+        /*
+        Use maxResultCount to set the maximum number of objects to return by the ANN condition.
+        Hint: it can also be used as the "ef" HNSW parameter to increase the search quality in combination
+        with a query limit. For example, use maxResultCount of 100 with a Query limit of 10 to have 10 results
+        that are of potentially better quality than just passing in 10 for maxResultCount
+        (quality/performance tradeoff).
+         */
+        return imagesBox
+            .query(FaceImageRecord_.faceEmbedding.nearestNeighbors(embedding, 10))
+            .build()
+            .findWithScores()
+            .map { it.get() }
+            .firstOrNull()
+    }
+
+    fun removeFaceRecordsWithPersonID(personID: Long) {
+        imagesBox.removeByIds(
+            imagesBox.query(FaceImageRecord_.personID.equal(personID)).build().findIds().toList()
+        )
+    }
+}
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.data
+
+import android.content.Context
+import io.objectbox.BoxStore
+
+object ObjectBoxStore {
+
+    lateinit var store: BoxStore
+        private set
+
+    fun init(context: Context) {
+        store = MyObjectBox.builder().androidContext(context).build()
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.data
+
+import io.objectbox.kotlin.flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
+
+class PersonDB {
+
+    private val personBox = ObjectBoxStore.store.boxFor(PersonRecord::class.java)
+
+    fun addPerson(person: PersonRecord): Long {
+        return personBox.put(person)
+    }
+
+    fun removePerson(personID: Long) {
+        personBox.removeByIds(listOf(personID))
+    }
+
+    // Returns the number of records present in the collection
+    fun getCount(): Long = personBox.count()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun getAll(): Flow<MutableList<PersonRecord>> =
+        personBox.query(PersonRecord_.personID.notNull()).build().flow().flowOn(Dispatchers.IO)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.di
+
+import android.app.Application
+import com.ml.shubham0204.facenet_android.data.ImagesVectorDB
+import com.ml.shubham0204.facenet_android.data.PersonDB
+import com.ml.shubham0204.facenet_android.domain.embeddings.FaceNet
+import com.ml.shubham0204.facenet_android.domain.face_detection.MediapipeFaceDetector
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+// AppModule provides dependencies that are to be injected by Hilt
+@Module
+@InstallIn(SingletonComponent::class)
+object AppModule {
+
+    // SingletonComponent ensures that instances survive
+    // across the application's lifespan
+    // @Singleton creates a single instance in the app's lifespan
+
+    @Provides
+    @Singleton
+    fun provideImageVectorDB(): ImagesVectorDB {
+        return ImagesVectorDB()
+    }
+
+    @Provides
+    @Singleton
+    fun providePersonDB(): PersonDB {
+        return PersonDB()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFaceNetEmbeddingModel(context: Application): FaceNet {
+        return FaceNet(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMediapipeFaceDetector(context: Application): MediapipeFaceDetector {
+        return MediapipeFaceDetector(context)
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.domain.embeddings
+
+import android.content.Context
+import android.graphics.Bitmap
+import java.nio.ByteBuffer
+import kotlin.math.max
+import kotlin.math.pow
+import kotlin.math.sqrt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.tensorflow.lite.DataType
+import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.gpu.CompatibilityList
+import org.tensorflow.lite.gpu.GpuDelegate
+import org.tensorflow.lite.support.common.FileUtil
+import org.tensorflow.lite.support.common.TensorOperator
+import org.tensorflow.lite.support.image.ImageProcessor
+import org.tensorflow.lite.support.image.TensorImage
+import org.tensorflow.lite.support.image.ops.ResizeOp
+import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
+import org.tensorflow.lite.support.tensorbuffer.TensorBufferFloat
+
+// Derived from the original project:
+// https://github.com/shubham0204/FaceRecognition_With_FaceNet_Android/blob/master/app/src/main/java/com/ml/quaterion/facenetdetection/model/FaceNetModel.kt
+// Utility class for FaceNet model
+class FaceNet(context: Context, useGpu: Boolean = true, useXNNPack: Boolean = true) {
+
+    // Input image size for FaceNet model.
+    private val imgSize = 160
+
+    // Output embedding size
+    private val embeddingDim = 512
+
+    private var interpreter: Interpreter
+    private val imageTensorProcessor =
+        ImageProcessor.Builder()
+            .add(ResizeOp(imgSize, imgSize, ResizeOp.ResizeMethod.BILINEAR))
+            .add(StandardizeOp())
+            .build()
+
+    init {
+        // Initialize TFLiteInterpreter
+        val interpreterOptions =
+            Interpreter.Options().apply {
+                // Add the GPU Delegate if supported.
+                // See -> https://www.tensorflow.org/lite/performance/gpu#android
+                if (useGpu) {
+                    if (CompatibilityList().isDelegateSupportedOnThisDevice) {
+                        addDelegate(GpuDelegate(CompatibilityList().bestOptionsForThisDevice))
+                    }
+                } else {
+                    // Number of threads for computation
+                    numThreads = 4
+                }
+                useXNNPACK = useXNNPack
+                useNNAPI = true
+            }
+        interpreter =
+            Interpreter(FileUtil.loadMappedFile(context, "facenet_512.tflite"), interpreterOptions)
+    }
+
+    // Gets an face embedding using FaceNet
+    suspend fun getFaceEmbedding(image: Bitmap) =
+        withContext(Dispatchers.Default) {
+            return@withContext runFaceNet(convertBitmapToBuffer(image))[0]
+        }
+
+    // Run the FaceNet model
+    private fun runFaceNet(inputs: Any): Array<FloatArray> {
+        val faceNetModelOutputs = Array(1) { FloatArray(embeddingDim) }
+        interpreter.run(inputs, faceNetModelOutputs)
+        return faceNetModelOutputs
+    }
+
+    // Resize the given bitmap and convert it to a ByteBuffer
+    private fun convertBitmapToBuffer(image: Bitmap): ByteBuffer {
+        return imageTensorProcessor.process(TensorImage.fromBitmap(image)).buffer
+    }
+
+    // Op to perform standardization
+    // x' = ( x - mean ) / std_dev
+    class StandardizeOp : TensorOperator {
+
+        override fun apply(p0: TensorBuffer?): TensorBuffer {
+            val pixels = p0!!.floatArray
+            val mean = pixels.average().toFloat()
+            var std = sqrt(pixels.map { pi -> (pi - mean).pow(2) }.sum() / pixels.size.toFloat())
+            std = max(std, 1f / sqrt(pixels.size.toFloat()))
+            for (i in pixels.indices) {
+                pixels[i] = (pixels[i] - mean) / std
+            }
+            val output = TensorBufferFloat.createFixedSize(p0.shape, DataType.FLOAT32)
+            output.loadArray(pixels)
+            return output
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.domain.face_detection
+
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.ImageFormat
+import android.graphics.Matrix
 import android.graphics.Rect
-import android.graphics.Typeface
-import android.graphics.YuvImage
-import android.hardware.usb.UsbDevice
-import android.os.*
-import android.provider.MediaStore
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
-import android.util.Log
-import android.view.Gravity
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.PopupWindow
-import android.widget.SeekBar
-import android.widget.TextView
-import android.widget.Toast
-import androidx.core.view.children
-import androidx.core.widget.TextViewCompat
-import androidx.lifecycle.lifecycleScope
-import com.aditya.`object`.ObjectDetectorHelper
-import com.aditya.`object`.R
-import com.aditya.`object`.databinding.FragmentUsbBinding
-import com.afollestad.materialdialogs.MaterialDialog
-import com.afollestad.materialdialogs.list.listItemsSingleChoice
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.TextRecognizer
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.jiangdg.ausbc.MultiCameraClient
-import com.jiangdg.ausbc.base.CameraFragment
-import com.jiangdg.ausbc.callback.ICameraStateCallBack
-import com.jiangdg.ausbc.callback.ICaptureCallBack
-import com.jiangdg.ausbc.callback.IPlayCallBack
-import com.jiangdg.ausbc.callback.IPreviewDataCallBack
-import com.jiangdg.ausbc.camera.CameraUVC
-import com.jiangdg.ausbc.render.effect.EffectBlackWhite
-import com.jiangdg.ausbc.render.effect.EffectSoul
-import com.jiangdg.ausbc.render.effect.EffectZoom
-import com.jiangdg.ausbc.render.effect.bean.CameraEffect
-import com.jiangdg.ausbc.utils.*
-import com.jiangdg.ausbc.utils.bus.BusKey
-import com.jiangdg.ausbc.utils.bus.EventBus
-import com.jiangdg.ausbc.widget.*
-import kotlinx.coroutines.*
-import org.tensorflow.lite.task.vision.detector.Detection
-import java.io.ByteArrayOutputStream
+import android.net.Uri
+import androidx.core.graphics.toRect
+import androidx.exifinterface.media.ExifInterface
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.facedetector.FaceDetector
+import com.ml.shubham0204.facenet_android.domain.AppException
+import com.ml.shubham0204.facenet_android.domain.ErrorCode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
-import java.util.*
-import java.util.concurrent.Executors
+import java.io.FileOutputStream
+import javax.inject.Singleton
 
-class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnViewClickListener {
-    private var mMoreMenu: PopupWindow? = null
-    private var isCapturingVideoOrAudio: Boolean = false
-    private var isPlayingMic: Boolean = false
-    private var mRecTimer: Timer? = null
-    private var mRecSeconds = 0
-    private var mRecMinute = 0
-    private var mRecHours = 0
-    private lateinit var objectDetectorHelper: ObjectDetectorHelper
-    private lateinit var textToSpeech: TextToSpeech
-    private lateinit var textRecognizer: TextRecognizer
-    private var isObjectDetectionActive: Boolean = false
-    private var isTextRecognitionActive: Boolean = false
-    private val inferenceDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-    private val speechQueue: Queue<String> = LinkedList()
-    private var lastSpokenTime: Long = 0
-    private val MIN_SPEECH_INTERVAL_MS = 2000L
-    private val SPEECH_RECOGNITION_DELAY = 1000L // 1-second delay between recognitions
+// Utility class for interacting with Mediapipe's Face Detector
+// See https://ai.google.dev/edge/mediapipe/solutions/vision/face_detector/android
+@Singleton
+class MediapipeFaceDetector(private val context: Context) {
 
-    // Add a SpeechRecognizer variable
-    private lateinit var speechRecognizer: SpeechRecognizer
+    // The model is stored in the assets folder
+    private val modelName = "blaze_face_short_range.tflite"
+    private val baseOptions = BaseOptions.builder().setModelAssetPath(modelName).build()
+    private val faceDetectorOptions =
+        FaceDetector.FaceDetectorOptions.builder()
+            .setBaseOptions(baseOptions)
+            .setRunningMode(RunningMode.IMAGE)
+            .build()
+    private val faceDetector = FaceDetector.createFromOptions(context, faceDetectorOptions)
 
-    private var previousDetections: MutableSet<String> = mutableSetOf()
+    suspend fun getCroppedFace(imageUri: Uri): Result<Bitmap> =
+        withContext(Dispatchers.IO) {
+            var imageInputStream =
+                context.contentResolver.openInputStream(imageUri)
+                    ?: return@withContext Result.failure<Bitmap>(
+                        AppException(ErrorCode.FACE_DETECTOR_FAILURE)
+                    )
+            var imageBitmap = BitmapFactory.decodeStream(imageInputStream)
+            imageInputStream.close()
 
-    private val mCameraModeTabMap = mapOf(
-        CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC to R.id.takePictureModeTv,
-        CaptureMediaView.CaptureMode.MODE_CAPTURE_VIDEO to R.id.recordVideoModeTv,
-        CaptureMediaView.CaptureMode.MODE_CAPTURE_AUDIO to R.id.recordAudioModeTv
-    )
-
-    private val ttsListener = TextToSpeech.OnUtteranceCompletedListener {
-        if (speechQueue.isNotEmpty()) {
-            val nextText = speechQueue.poll()
-            textToSpeech.speak(nextText, TextToSpeech.QUEUE_FLUSH, null, nextText.hashCode().toString())
-        }
-    }
-
-    // Initialize SpeechRecognizer and start listening
-    private fun initSpeechRecognizer() {
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
-        speechRecognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {
-                ToastUtils.showToast(requireContext(), "Listening for voice command...")
-            }
-
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-
-            override fun onError(error: Int) {
-                Log.e(TAG, "Speech recognition error: $error")
-                if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
-                    // Handle busy recognizer error
-                    ToastUtils.showToast(requireContext(), "Recognizer busy, retrying...")
-                } else {
-                    ToastUtils.showToast(requireContext(), "Error recognizing speech, please try again.")
-                }
-
-                // Restart listening on error with a delay
-                lifecycleScope.launch {
-                    delay(SPEECH_RECOGNITION_DELAY)  // Delay before retrying
-                    startListeningForVoiceCommand()
-                }
-            }
-
-            override fun onResults(results: Bundle?) {
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                matches?.let {
-                    for (result in it) {
-                        Log.d(TAG, "Voice command detected: $result")
-                        handleVoiceCommand(result)  // Handle the voice command
-                    }
-                }
-                // Restart listening after processing the command
-                startListeningForVoiceCommand()
-            }
-
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
-    }
-
-
-    private fun startListeningForVoiceCommand() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Say 'object' to start detection or 'stop' to stop detection")
-        }
-
-        try {
-            speechRecognizer.startListening(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.e(TAG, "Speech recognition not supported on this device: ${e.message}")
-            Toast.makeText(requireContext(), "Speech recognition not supported on this device", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // Method to handle voice commands
-    private fun handleVoiceCommand(command: String) {
-        when (command.toLowerCase(Locale.ROOT)) {
-            "object" -> {
-                if (!isObjectDetectionActive) {
-                    stopTextDetection()
-                    startObjectDetection()
-                }
-            }
-            "scan" -> {
-                if (!isTextRecognitionActive) {
-                    stopObjectDetection()
-                    startTextDetection()
-                }
-            }
-            "stop" -> {
-                stopAllDetections()
-            }
-            else -> {
-                Log.d(TAG, "Unknown command: $command")
-            }
-        }
-    }
-
-    private val mEffectDataList by lazy {
-        arrayListOf(
-            CameraEffect.NONE_FILTER,
-            CameraEffect(
-                EffectBlackWhite.ID,
-                "BlackWhite",
-                CameraEffect.CLASSIFY_ID_FILTER,
-                effect = EffectBlackWhite(requireActivity()),
-                coverResId = R.mipmap.filter0
-            ),
-            CameraEffect.NONE_ANIMATION,
-            CameraEffect(
-                EffectZoom.ID,
-                "Zoom",
-                CameraEffect.CLASSIFY_ID_ANIMATION,
-                effect = EffectZoom(requireActivity()),
-                coverResId = R.mipmap.filter2
-            ),
-            CameraEffect(
-                EffectSoul.ID,
-                "Soul",
-                CameraEffect.CLASSIFY_ID_ANIMATION,
-                effect = EffectSoul(requireActivity()),
-                coverResId = R.mipmap.filter1
-            ),
-        )
-    }
-
-    private lateinit var mViewBinding: FragmentUsbBinding
-    private var mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC
-
-    private val mMainHandler: Handler by lazy {
-        Handler(Looper.getMainLooper()) {
-            when (it.what) {
-                WHAT_START_TIMER -> {
-                    if (mRecSeconds % 2 != 0) {
-                        mViewBinding.recStateIv.visibility = View.VISIBLE
-                    } else {
-                        mViewBinding.recStateIv.visibility = View.INVISIBLE
-                    }
-                    mViewBinding.recTimeTv.text = calculateTime(mRecSeconds, mRecMinute)
-                }
-                WHAT_STOP_TIMER -> {
-                    mViewBinding.modeSwitchLayout.visibility = View.VISIBLE
-                    mViewBinding.toolbarGroup.visibility = View.VISIBLE
-                    mViewBinding.albumPreviewIv.visibility = View.VISIBLE
-                    mViewBinding.lensFacingBtn1.visibility = View.VISIBLE
-                    mViewBinding.recTimerLayout.visibility = View.GONE
-                    mViewBinding.recTimeTv.text = calculateTime(0, 0)
-                }
-            }
-            true
-        }
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        textToSpeech = TextToSpeech(requireContext()) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                textToSpeech.language = Locale.US
-                textToSpeech.setSpeechRate(0.8f)
-                textToSpeech.setPitch(1.0f)
-                textToSpeech.setOnUtteranceCompletedListener(ttsListener)
-            }
-        }
-
-        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.Builder().build())
-
-        initObjectDetector()
-
-        initSpeechRecognizer()
-        startListeningForVoiceCommand()
-    }
-
-    private fun shouldSpeakNow(): Boolean {
-        val currentTime = System.currentTimeMillis()
-        return if (currentTime - lastSpokenTime >= MIN_SPEECH_INTERVAL_MS) {
-            lastSpokenTime = currentTime
-            true
-        } else {
-            false
-        }
-    }
-
-    private fun startObjectDetection() {
-        if (!isObjectDetectionActive) {  // Check if already active
-            isObjectDetectionActive = true
-            Toast.makeText(requireContext(), "Object Detection Started", Toast.LENGTH_SHORT).show()
-
-            // Add any necessary setup for object detection
-            getCurrentCamera()?.addPreviewDataCallBack(object : IPreviewDataCallBack {
-                override fun onPreviewData(
-                    data: ByteArray?,
-                    width: Int,
-                    height: Int,
-                    format: IPreviewDataCallBack.DataFormat
+            // Re-create an input-stream to reset its position
+            // InputStream returns false with markSupported(), hence we cannot
+            // reset its position
+            // Without recreating the inputStream, no exif-data is read
+            imageInputStream =
+                context.contentResolver.openInputStream(imageUri)
+                    ?: return@withContext Result.failure<Bitmap>(
+                        AppException(ErrorCode.FACE_DETECTOR_FAILURE)
+                    )
+            val exifInterface = ExifInterface(imageInputStream)
+            imageBitmap =
+                when (
+                    exifInterface.getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_UNDEFINED
+                    )
                 ) {
-                    Log.d(TAG, "Preview Data Received: Width = $width, Height = $height, Format = $format")
-                    processFrame(data, width, height, format)
+                    ExifInterface.ORIENTATION_ROTATE_90 -> rotateBitmap(imageBitmap, 90f)
+                    ExifInterface.ORIENTATION_ROTATE_180 -> rotateBitmap(imageBitmap, 180f)
+                    ExifInterface.ORIENTATION_ROTATE_270 -> rotateBitmap(imageBitmap, 270f)
+                    else -> imageBitmap
                 }
-            })
-        }
-    }
+            imageInputStream.close()
 
-    private fun processFrame(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat) {
-        data ?: return
-
-        Log.d(TAG, "Processing frame with width: $width, height: $height, format: $format")
-
-        lifecycleScope.launch(inferenceDispatcher) {
-            try {
-                val bitmap = convertYUVToBitmap(data, width, height, format)
-                objectDetectorHelper.detect(bitmap, 0)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error processing frame: ${e.message}")
+            // We need exactly one face in the image, in other cases, return the
+            // necessary errors
+            val faces = faceDetector.detect(BitmapImageBuilder(imageBitmap).build()).detections()
+            if (faces.size > 1) {
+                return@withContext Result.failure<Bitmap>(AppException(ErrorCode.MULTIPLE_FACES))
+            } else if (faces.size == 0) {
+                return@withContext Result.failure<Bitmap>(AppException(ErrorCode.NO_FACE))
+            } else {
+                // Validate the bounding box and
+                // return the cropped face
+                val rect = faces[0].boundingBox().toRect()
+                if (validateRect(imageBitmap, rect)) {
+                    val croppedBitmap =
+                        Bitmap.createBitmap(
+                            imageBitmap,
+                            rect.left,
+                            rect.top,
+                            rect.width(),
+                            rect.height()
+                        )
+                    return@withContext Result.success(croppedBitmap)
+                } else {
+                    return@withContext Result.failure<Bitmap>(
+                        AppException(ErrorCode.FACE_DETECTOR_FAILURE)
+                    )
+                }
             }
         }
-    }
 
-    private fun convertYUVToBitmap(data: ByteArray, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat): Bitmap {
-        return if (format == IPreviewDataCallBack.DataFormat.RGBA) {
-            val pixels = IntArray(width * height)
-            for (i in 0 until width * height) {
-                val r = data[i * 4].toInt() and 0xFF
-                val g = data[i * 4 + 1].toInt() and 0xFF
-                val b = data[i * 4 + 2].toInt() and 0xFF
-                val a = data[i * 4 + 3].toInt() and 0xFF
-                pixels[i] = (a shl 24) or (r shl 16) or (g shl 8) or b
-            }
-
-            Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
-        } else {
-            val yuvImage = YuvImage(data, ImageFormat.NV21, width, height, null)
-            val out = ByteArrayOutputStream()
-            yuvImage.compressToJpeg(Rect(0, 0, width, height), 100, out)
-            val imageBytes = out.toByteArray()
-            BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-        }
-    }
-
-    private fun initObjectDetector() {
-        lifecycleScope.launch(inferenceDispatcher) {
-            objectDetectorHelper = ObjectDetectorHelper(
-                context = requireContext(),
-                objectDetectorListener = object : ObjectDetectorHelper.DetectorListener {
-                    override fun onError(error: String) {
-                        Log.e(TAG, "Object Detection Error: $error")
-                        ToastUtils.show("Object Detection Error: $error")
-                    }
-
-                    override fun onResults(
-                        results: MutableList<Detection>?,
-                        inferenceTime: Long,
-                        imageHeight: Int,
-                        imageWidth: Int
-                    ) {
-                        results?.let { detections ->
-                            if (detections.isNotEmpty()) {
-                                Log.d(TAG, "Detections found: ${detections.size}")
-                                updateOverlayView(detections, imageHeight, imageWidth)
-
-                                handleDetections(detections)
-                            } else {
-                                Log.d(TAG, "No detections found.")
-                            }
-                        }
-                    }
+    // Detects multiple faces from the frameBitmap
+    // and returns pairs of (croppedFace , boundingBoxRect)
+    // Used by ImageVectorUseCase.kt
+    suspend fun getAllCroppedFaces(frameBitmap: Bitmap): List<Pair<Bitmap, Rect>> =
+        withContext(Dispatchers.IO) {
+            return@withContext faceDetector
+                .detect(BitmapImageBuilder(frameBitmap).build())
+                .detections()
+                .filter { validateRect(frameBitmap, it.boundingBox().toRect()) }
+                .map { detection -> detection.boundingBox().toRect() }
+                .map { rect ->
+                    val croppedBitmap =
+                        Bitmap.createBitmap(
+                            frameBitmap,
+                            rect.left,
+                            rect.top,
+                            rect.width(),
+                            rect.height()
+                        )
+                    Pair(croppedBitmap, rect)
                 }
+        }
+
+    // DEBUG: For testing purpose, saves the Bitmap to the app's private storage
+    fun saveBitmap(context: Context, image: Bitmap, name: String) {
+        val fileOutputStream = FileOutputStream(File(context.filesDir.absolutePath + "/$name.png"))
+        image.compress(Bitmap.CompressFormat.PNG, 100, fileOutputStream)
+    }
+
+    private fun rotateBitmap(source: Bitmap, degrees: Float): Bitmap {
+        val matrix = Matrix()
+        matrix.postRotate(degrees)
+        return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, false)
+    }
+
+    // Check if the bounds of boundingBox fit within the
+    // limits of cameraFrameBitmap
+    private fun validateRect(cameraFrameBitmap: Bitmap, boundingBox: Rect): Boolean {
+        return boundingBox.left >= 0 &&
+            boundingBox.top >= 0 &&
+            (boundingBox.left + boundingBox.width()) < cameraFrameBitmap.width &&
+            (boundingBox.top + boundingBox.height()) < cameraFrameBitmap.height
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.domain
+
+enum class ErrorCode(val message: String) {
+    MULTIPLE_FACES("Multiple faces found in the image"),
+    NO_FACE("No faces were in the image"),
+    FACE_DETECTOR_FAILURE("Face detection failed")
+}
+
+class AppException(val errorCode: ErrorCode) : Exception()
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.domain
+
+import android.graphics.Bitmap
+import android.graphics.Rect
+import android.net.Uri
+import com.ml.shubham0204.facenet_android.data.FaceImageRecord
+import com.ml.shubham0204.facenet_android.data.ImagesVectorDB
+import com.ml.shubham0204.facenet_android.data.RecognitionMetrics
+import com.ml.shubham0204.facenet_android.domain.embeddings.FaceNet
+import com.ml.shubham0204.facenet_android.domain.face_detection.MediapipeFaceDetector
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.math.pow
+import kotlin.math.sqrt
+import kotlin.time.DurationUnit
+import kotlin.time.measureTimedValue
+
+@Singleton
+class ImageVectorUseCase
+@Inject
+constructor(
+    private val mediapipeFaceDetector: MediapipeFaceDetector,
+    private val imagesVectorDB: ImagesVectorDB,
+    private val faceNet: FaceNet
+) {
+
+    // Add the person's image to the database
+    suspend fun addImage(personID: Long, personName: String, imageUri: Uri): Result<Boolean> {
+        // Perform face-detection and get the cropped face as a Bitmap
+        val faceDetectionResult = mediapipeFaceDetector.getCroppedFace(imageUri)
+        if (faceDetectionResult.isSuccess) {
+            // Get the embedding for the cropped face, and store it
+            // in the database, along with personId and personName
+            val embedding = faceNet.getFaceEmbedding(faceDetectionResult.getOrNull()!!)
+            imagesVectorDB.addFaceImageRecord(
+                FaceImageRecord(
+                    personID = personID,
+                    personName = personName,
+                    faceEmbedding = embedding
+                )
             )
-        }
-    }
-
-    private fun handleDetections(detections: List<Detection>) {
-        val currentDetections = mutableSetOf<String>()
-
-        for (detection in detections) {
-            detection.categories.firstOrNull()?.label?.let { currentDetections.add(it) }
-        }
-
-        val newDetections = currentDetections.subtract(previousDetections)
-
-        for (detection in newDetections) {
-            if (shouldSpeakNow()) {
-                Log.d(TAG, "Detected new object: $detection")
-                if (!textToSpeech.isSpeaking) {
-                    textToSpeech.speak(detection, TextToSpeech.QUEUE_FLUSH, null, detection.hashCode().toString())
-                } else {
-                    speechQueue.offer(detection)
-                }
-            }
-        }
-
-        previousDetections = currentDetections
-    }
-
-    private fun updateOverlayView(detections: List<Detection>, imageHeight: Int, imageWidth: Int) {
-        mViewBinding.overlay.setResults(detections, imageHeight, imageWidth)
-    }
-
-    private fun stopLiveObjectDetection() {
-        isObjectDetectionActive = false
-        getCurrentCamera()?.removePreviewDataCallBack(object : IPreviewDataCallBack {
-            override fun onPreviewData(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat) {}
-        })
-    }
-
-    override fun initView() {
-        super.initView()
-
-        mViewBinding.lensFacingBtn1.setOnClickListener(this)
-        mViewBinding.effectsBtn.setOnClickListener(this)
-        mViewBinding.cameraTypeBtn.setOnClickListener(this)
-        mViewBinding.settingsBtn.setOnClickListener(this)
-        mViewBinding.voiceBtn.setOnClickListener(this)
-        mViewBinding.resolutionBtn.setOnClickListener(this)
-        mViewBinding.albumPreviewIv.setOnClickListener(this)
-        mViewBinding.captureBtn.setOnViewClickListener(this)
-        mViewBinding.albumPreviewIv.setTheme(PreviewImageView.Theme.DARK)
-
-        mViewBinding.btnStartTextDetection.setOnClickListener {
-            startTextDetection()
-        }
-
-        mViewBinding.btnStopTextDetection.setOnClickListener {
-            stopAllDetections()
-        }
-
-        switchLayoutClick()
-    }
-
-    override fun initData() {
-        super.initData()
-        initObjectDetector()
-        EventBus.with<Int>(BusKey.KEY_FRAME_RATE).observe(this) {
-            mViewBinding.frameRateTv.text = "frame rate:  $it fps"
-        }
-
-        EventBus.with<Boolean>(BusKey.KEY_RENDER_READY).observe(this) { ready ->
-            if (!ready) return@observe
-            getDefaultEffect()?.apply {
-                when (getClassifyId()) {
-                    CameraEffect.CLASSIFY_ID_FILTER -> {
-                        val filterId = -1
-                        if (filterId != -99) {
-                            removeRenderEffect(this)
-                            mEffectDataList.find {
-                                it.id == filterId
-                            }?.also {
-                                it.effect?.let { effect ->
-                                    addRenderEffect(effect)
-                                }
-                            }
-                        }
-                    }
-                    CameraEffect.CLASSIFY_ID_ANIMATION -> {
-                        val animId = -1
-                        if (animId != -99) {
-                            removeRenderEffect(this)
-                            mEffectDataList.find {
-                                it.id == animId
-                            }?.also {
-                                it.effect?.let { effect ->
-                                    addRenderEffect(effect)
-                                }
-                            }
-                        }
-                    }
-                    else -> throw IllegalStateException("Unsupported classify")
-                }
-            }
-        }
-    }
-
-    private fun startTextDetection() {
-        if (!isTextRecognitionActive) {  // Check if already active
-            isTextRecognitionActive = true
-            Toast.makeText(requireContext(), "Text Detection Started", Toast.LENGTH_SHORT).show()
-
-            lifecycleScope.launch(Dispatchers.Default) {
-                while (isTextRecognitionActive) {
-                    captureFrameForTextDetection()
-                    delay(DETECTION_INTERVAL_MS)
-                }
-            }
-        }
-    }
-
-
-    private suspend fun captureFrameForTextDetection() {
-        withContext(Dispatchers.Default) {
-            val currentCamera = getCurrentCamera() as? CameraUVC ?: return@withContext
-            currentCamera.captureImage(object : ICaptureCallBack {
-                override fun onBegin() {}
-
-                override fun onError(error: String?) {
-                    ToastUtils.show("Error capturing frame: $error")
-                }
-
-                override fun onComplete(path: String?) {
-                    path?.let {
-                        val bitmap = BitmapFactory.decodeFile(it)
-                        detectText(bitmap)
-
-                        scheduleFileDeletion(it, 10_000L)
-                    }
-                }
-            })
-        }
-    }
-
-
-    private fun scheduleFileDeletion(filePath: String, delayMillis: Long) {
-        Handler(Looper.getMainLooper()).postDelayed({
-            val file = File(filePath)
-            if (file.exists()) {
-
-                val deleted = file.delete()
-                if (deleted) {
-                    removeImageFromGallery(filePath)
-                    Log.d(TAG, "File deleted successfully: $filePath")
-                } else {
-                    Log.e(TAG, "Failed to delete file: $filePath")
-                }
-            }
-        }, delayMillis)
-    }
-
-    private fun removeImageFromGallery(filePath: String) {
-
-        val contentResolver = requireContext().contentResolver
-
-        val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        val selection = "${MediaStore.Images.Media.DATA} = ?"
-        val selectionArgs = arrayOf(filePath)
-
-        val rowsDeleted = contentResolver.delete(uri, selection, selectionArgs)
-
-        if (rowsDeleted > 0) {
-            Log.d(TAG, "MediaStore updated successfully for file: $filePath")
+            return Result.success(true)
         } else {
-            Log.e(TAG, "Failed to update MediaStore for file: $filePath")
+            return Result.failure(faceDetectionResult.exceptionOrNull()!!)
         }
     }
 
-    private fun detectText(bitmap: Bitmap) {
-        val inputImage = InputImage.fromBitmap(bitmap, 0)
-
-        textRecognizer.process(inputImage)
-            .addOnSuccessListener { visionText ->
-                val detectedText = visionText.text
-                if (detectedText.isNotEmpty()) {
-                    readDetectedText(detectedText)
-                    updateOverlayViewForText(visionText.textBlocks, bitmap.height, bitmap.width)
-                }
+    // From the given frame, return the name of the person by performing
+    // face recognition
+    suspend fun getNearestPersonName(
+        frameBitmap: Bitmap
+    ): Pair<RecognitionMetrics?, List<Pair<String, Rect>>> {
+        // Perform face-detection and get the cropped face as a Bitmap
+        val (faceDetectionResult, t1) =
+            measureTimedValue { mediapipeFaceDetector.getAllCroppedFaces(frameBitmap) }
+        val faceRecognitionResults = ArrayList<Pair<String, Rect>>()
+        var avgT2 = 0L
+        var avgT3 = 0L
+        for (result in faceDetectionResult) {
+            // Get the embedding for the cropped face (query embedding)
+            val (croppedBitmap, boundingBox) = result
+            val (embedding, t2) = measureTimedValue { faceNet.getFaceEmbedding(croppedBitmap) }
+            avgT2 += t2.toLong(DurationUnit.MILLISECONDS)
+            // Perform nearest-neighbor search
+            val (recognitionResult, t3) =
+                measureTimedValue { imagesVectorDB.getNearestEmbeddingPersonName(embedding) }
+            avgT3 += t3.toLong(DurationUnit.MILLISECONDS)
+            if (recognitionResult == null) {
+                faceRecognitionResults.add(Pair("Not recognized", boundingBox))
+                continue
             }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Text Recognition Error: $e")
+            // Calculate cosine similarity between the nearest-neighbor
+            // and the query embedding
+            val distance = cosineDistance(embedding, recognitionResult.faceEmbedding)
+            // If the distance > 0.4, we recognize the person
+            // else we conclude that the face does not match enough
+            if (distance > 0.4) {
+                faceRecognitionResults.add(Pair(recognitionResult.personName, boundingBox))
+            } else {
+                faceRecognitionResults.add(Pair("Not recognized", boundingBox))
             }
+        }
+        val metrics =
+            if (faceDetectionResult.isNotEmpty()) {
+                RecognitionMetrics(
+                    timeFaceDetection = t1.toLong(DurationUnit.MILLISECONDS),
+                    timeFaceEmbedding = avgT2 / faceDetectionResult.size,
+                    timeVectorSearch = avgT3 / faceDetectionResult.size
+                )
+            } else {
+                null
+            }
+
+        return Pair(metrics, faceRecognitionResults)
     }
 
-    private fun readDetectedText(text: String) {
-        if (text.isEmpty() || !shouldSpeakNow()) {
-            return
+    private fun cosineDistance(x1: FloatArray, x2: FloatArray): Float {
+        var mag1 = 0.0f
+        var mag2 = 0.0f
+        var product = 0.0f
+        for (i in x1.indices) {
+            mag1 += x1[i].pow(2)
+            mag2 += x2[i].pow(2)
+            product += x1[i] * x2[i]
         }
-
-        if (!textToSpeech.isSpeaking) {
-            textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, text.hashCode().toString())
-        } else {
-            speechQueue.offer(text)
-        }
+        mag1 = sqrt(mag1)
+        mag2 = sqrt(mag2)
+        return product / (mag1 * mag2)
     }
 
-    private fun updateOverlayViewForText(textBlocks: List<com.google.mlkit.vision.text.Text.TextBlock>, imageHeight: Int, imageWidth: Int) {
+    fun removeImages(personID: Long) {
+        imagesVectorDB.removeFaceRecordsWithPersonID(personID)
+    }
+}
 
-        mViewBinding.overlay.setResults(
-            emptyList(), imageHeight, imageWidth, textBlocks
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.domain
+
+import com.ml.shubham0204.facenet_android.data.PersonDB
+import com.ml.shubham0204.facenet_android.data.PersonRecord
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+
+@Singleton
+class PersonUseCase @Inject constructor(private val personDB: PersonDB) {
+
+    fun addPerson(name: String, numImages: Long): Long {
+        return personDB.addPerson(
+            PersonRecord(
+                personName = name,
+                numImages = numImages,
+                addTime = System.currentTimeMillis()
+            )
         )
     }
 
-    private fun stopAllDetections() {
-        stopObjectDetection()
-        stopTextDetection()
-        Toast.makeText(requireContext(), "Detection Stopped", Toast.LENGTH_SHORT).show()
+    fun removePerson(id: Long) {
+        personDB.removePerson(id)
     }
 
-    private fun stopTextDetection() {
-        if (isTextRecognitionActive) {
-            isTextRecognitionActive = false
-            lifecycleScope.coroutineContext.cancelChildren()  // Cancels all child coroutines
-            Toast.makeText(requireContext(), "Text Detection Stopped", Toast.LENGTH_SHORT).show()
-        }
-    }
+    fun getAll(): Flow<List<PersonRecord>> = personDB.getAll()
 
-
-    override fun onCameraState(
-        self: MultiCameraClient.ICamera,
-        code: ICameraStateCallBack.State,
-        msg: String?
-    ) {
-        when (code) {
-            ICameraStateCallBack.State.OPENED -> {
-                handleCameraOpened()
-            }
-            ICameraStateCallBack.State.CLOSED -> handleCameraClosed()
-            ICameraStateCallBack.State.ERROR -> handleCameraError(msg)
-        }
-    }
-
-    private fun handleCameraError(msg: String?) {
-        mViewBinding.uvcLogoIv.visibility = View.VISIBLE
-        mViewBinding.frameRateTv.visibility = View.GONE
-        ToastUtils.show("camera opened error: $msg")
-    }
-
-    private fun handleCameraClosed() {
-        mViewBinding.uvcLogoIv.visibility = View.VISIBLE
-        mViewBinding.frameRateTv.visibility = View.GONE
-        ToastUtils.show("camera closed success")
-        stopAllDetections()
-    }
-
-    private fun handleCameraOpened() {
-        mViewBinding.uvcLogoIv.visibility = View.GONE
-        mViewBinding.frameRateTv.visibility = View.VISIBLE
-        mViewBinding.brightnessSb.max = (getCurrentCamera() as? CameraUVC)?.getBrightnessMax() ?: 100
-        mViewBinding.brightnessSb.progress = (getCurrentCamera() as? CameraUVC)?.getBrightness() ?: 0
-        Logger.i(TAG, "max = ${mViewBinding.brightnessSb.max}, progress = ${mViewBinding.brightnessSb.progress}")
-        mViewBinding.brightnessSb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                (getCurrentCamera() as? CameraUVC)?.setBrightness(progress)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-        ToastUtils.show("camera opened success")
-    }
-
-    private fun switchLayoutClick() {
-        mViewBinding.takePictureModeTv.setOnClickListener {
-            if (mCameraMode == CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC) {
-                return@setOnClickListener
-            }
-            mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC
-            updateCameraModeSwitchUI()
-        }
-        mViewBinding.recordVideoModeTv.setOnClickListener {
-            if (mCameraMode == CaptureMediaView.CaptureMode.MODE_CAPTURE_VIDEO) {
-                return@setOnClickListener
-            }
-            mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_VIDEO
-            updateCameraModeSwitchUI()
-        }
-        mViewBinding.recordAudioModeTv.setOnClickListener {
-            if (mCameraMode == CaptureMediaView.CaptureMode.MODE_CAPTURE_AUDIO) {
-                return@setOnClickListener
-            }
-            mCameraMode = CaptureMediaView.CaptureMode.MODE_CAPTURE_AUDIO
-            updateCameraModeSwitchUI()
-        }
-        updateCameraModeSwitchUI()
-        showRecentMedia()
-    }
-
-    override fun getCameraView(): IAspectRatio {
-        return AspectRatioTextureView(requireContext())
-    }
-
-    override fun getCameraViewContainer(): ViewGroup {
-        return mViewBinding.cameraViewContainer
-    }
-
-    override fun getRootView(inflater: LayoutInflater, container: ViewGroup?): View {
-        mViewBinding = FragmentUsbBinding.inflate(inflater, container, false)
-        return mViewBinding.root
-    }
-
-    override fun getGravity(): Int = Gravity.CENTER
-
-    override fun onViewClick(mode: CaptureMediaView.CaptureMode?) {
-        if (!isCameraOpened()) {
-            ToastUtils.show("camera not worked!")
-            return
-        }
-        when (mode) {
-            CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC -> captureImage()
-            CaptureMediaView.CaptureMode.MODE_CAPTURE_AUDIO -> captureAudio()
-            else -> captureVideo()
-        }
-    }
-
-    private fun captureAudio() {
-        if (isCapturingVideoOrAudio) {
-            captureAudioStop()
-            return
-        }
-        captureAudioStart(object : ICaptureCallBack {
-            override fun onBegin() {
-                isCapturingVideoOrAudio = true
-                mViewBinding.captureBtn.setCaptureVideoState(CaptureMediaView.CaptureVideoState.DOING)
-                mViewBinding.modeSwitchLayout.visibility = View.GONE
-                mViewBinding.toolbarGroup.visibility = View.GONE
-                mViewBinding.albumPreviewIv.visibility = View.GONE
-                mViewBinding.lensFacingBtn1.visibility = View.GONE
-                mViewBinding.recTimerLayout.visibility = View.VISIBLE
-                startMediaTimer()
-            }
-
-            override fun onError(error: String?) {
-                ToastUtils.show(error ?: "Unknown error")
-                isCapturingVideoOrAudio = false
-                mViewBinding.captureBtn.setCaptureVideoState(CaptureMediaView.CaptureVideoState.UNDO)
-                stopMediaTimer()
-            }
-
-            override fun onComplete(path: String?) {
-                isCapturingVideoOrAudio = false
-                mViewBinding.captureBtn.setCaptureVideoState(CaptureMediaView.CaptureVideoState.UNDO)
-                mViewBinding.modeSwitchLayout.visibility = View.VISIBLE
-                mViewBinding.toolbarGroup.visibility = View.VISIBLE
-                mViewBinding.albumPreviewIv.visibility = View.VISIBLE
-                mViewBinding.lensFacingBtn1.visibility = View.VISIBLE
-                mViewBinding.recTimerLayout.visibility = View.GONE
-                stopMediaTimer()
-                ToastUtils.show(path ?: "error")
-            }
-        })
-    }
-
-    private fun captureVideo() {
-        if (isCapturingVideoOrAudio) {
-            captureVideoStop()
-            return
-        }
-        captureVideoStart(object : ICaptureCallBack {
-            override fun onBegin() {
-                isCapturingVideoOrAudio = true
-                mViewBinding.captureBtn.setCaptureVideoState(CaptureMediaView.CaptureVideoState.DOING)
-                mViewBinding.modeSwitchLayout.visibility = View.GONE
-                mViewBinding.toolbarGroup.visibility = View.GONE
-                mViewBinding.albumPreviewIv.visibility = View.GONE
-                mViewBinding.lensFacingBtn1.visibility = View.GONE
-                mViewBinding.recTimerLayout.visibility = View.VISIBLE
-                startMediaTimer()
-            }
-
-            override fun onError(error: String?) {
-                ToastUtils.show(error ?: "Unknown error")
-                isCapturingVideoOrAudio = false
-                mViewBinding.captureBtn.setCaptureVideoState(CaptureMediaView.CaptureVideoState.UNDO)
-                stopMediaTimer()
-            }
-
-            override fun onComplete(path: String?) {
-                ToastUtils.show(path ?: "")
-                isCapturingVideoOrAudio = false
-                mViewBinding.captureBtn.setCaptureVideoState(CaptureMediaView.CaptureVideoState.UNDO)
-                mViewBinding.modeSwitchLayout.visibility = View.VISIBLE
-                mViewBinding.toolbarGroup.visibility = View.VISIBLE
-                mViewBinding.albumPreviewIv.visibility = View.VISIBLE
-                mViewBinding.lensFacingBtn1.visibility = View.VISIBLE
-                mViewBinding.recTimerLayout.visibility = View.GONE
-                showRecentMedia(false)
-                stopMediaTimer()
-            }
-        })
-    }
-
-    private fun captureImage() {
-        captureImage(object : ICaptureCallBack {
-            override fun onBegin() {
-                mViewBinding.albumPreviewIv.showImageLoadProgress()
-                mViewBinding.albumPreviewIv.setNewImageFlag(true)
-            }
-
-            override fun onError(error: String?) {
-                ToastUtils.show(error ?: "Unknown error")
-                mViewBinding.albumPreviewIv.cancelAnimation()
-                mViewBinding.albumPreviewIv.setNewImageFlag(false)
-            }
-
-            override fun onComplete(path: String?) {
-                showRecentMedia(true)
-                mViewBinding.albumPreviewIv.setNewImageFlag(false)
-            }
-        })
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        mMoreMenu?.dismiss()
-        stopAllDetections()
-        stopLiveObjectDetection()
-        inferenceDispatcher.close()
-        speechRecognizer.destroy()
-
-        lifecycleScope.coroutineContext.cancelChildren()
-    }
-
-    private fun stopObjectDetection() {
-        if (isObjectDetectionActive) {
-            isObjectDetectionActive = false
-            getCurrentCamera()?.removePreviewDataCallBack(object : IPreviewDataCallBack {
-                override fun onPreviewData(data: ByteArray?, width: Int, height: Int, format: IPreviewDataCallBack.DataFormat) {}
-            })
-            Toast.makeText(requireContext(), "Object Detection Stopped", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-
-    override fun onClick(v: View?) {
-        if (!isCameraOpened()) {
-            ToastUtils.show("camera not worked!")
-            return
-        }
-        clickAnimation(v!!, object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                when (v) {
-                    mViewBinding.lensFacingBtn1 -> {
-                        getCurrentCamera()?.let { strategy ->
-                            if (strategy is CameraUVC) {
-                                showUsbDevicesDialog(getDeviceList(), strategy.getUsbDevice())
-                                return
-                            }
-                        }
-                    }
-                    mViewBinding.voiceBtn -> playMic()
-                    mViewBinding.resolutionBtn -> showResolutionDialog()
-                    mViewBinding.albumPreviewIv -> goToGallery()
-                    else -> {
-                        // No need to trigger detection manually
-                    }
-                }
-            }
-        })
-    }
-
-    private fun showUsbDevicesDialog(usbDeviceList: MutableList<UsbDevice>?, curDevice: UsbDevice?) {
-        if (usbDeviceList.isNullOrEmpty()) {
-            ToastUtils.show("Get usb device failed")
-            return
-        }
-        val list = arrayListOf<String>()
-        var selectedIndex: Int = -1
-        for (index in usbDeviceList.indices) {
-            val dev = usbDeviceList[index]
-            val devName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && !dev.productName.isNullOrEmpty()) {
-                "${dev.productName}(${curDevice?.deviceId})"
-            } else {
-                dev.deviceName
-            }
-            val curDevName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && !curDevice?.productName.isNullOrEmpty()) {
-                "${curDevice!!.productName}(${curDevice.deviceId})"
-            } else {
-                curDevice?.deviceName
-            }
-            if (devName == curDevName) {
-                selectedIndex = index
-            }
-            list.add(devName)
-        }
-        MaterialDialog(requireContext()).show {
-            listItemsSingleChoice(
-                items = list,
-                initialSelection = selectedIndex
-            ) { _, index, _ ->
-                if (selectedIndex == index) {
-                    return@listItemsSingleChoice
-                }
-                switchCamera(usbDeviceList[index])
-            }
-        }
-    }
-
-    private fun showResolutionDialog() {
-        mMoreMenu?.dismiss()
-        getAllPreviewSizes().let { previewSizes ->
-            if (previewSizes.isNullOrEmpty()) {
-                ToastUtils.show("Get camera preview size failed")
-                return
-            }
-            val list = arrayListOf<String>()
-            var selectedIndex: Int = -1
-            for (index in previewSizes.indices) {
-                val w = previewSizes[index].width
-                val h = previewSizes[index].height
-                getCurrentPreviewSize()?.apply {
-                    if (width == w && height == h) {
-                        selectedIndex = index
-                    }
-                }
-                list.add("$w x $h")
-            }
-            MaterialDialog(requireContext()).show {
-                listItemsSingleChoice(
-                    items = list,
-                    initialSelection = selectedIndex
-                ) { _, index, _ ->
-                    if (selectedIndex == index) {
-                        return@listItemsSingleChoice
-                    }
-                    updateResolution(previewSizes[index].width, previewSizes[index].height)
-                }
-            }
-        }
-    }
-
-    private fun goToGallery() {
-        try {
-            Intent(Intent.ACTION_VIEW, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
-                startActivity(this)
-            }
-        } catch (e: Exception) {
-            ToastUtils.show("open error: ${e.localizedMessage}")
-        }
-    }
-
-    private fun playMic() {
-        if (isPlayingMic) {
-            stopPlayMic()
-            return
-        }
-        startPlayMic(object : IPlayCallBack {
-            override fun onBegin() {
-                mViewBinding.voiceBtn.setImageResource(R.mipmap.camera_voice_on)
-                isPlayingMic = true
-            }
-
-            override fun onError(error: String) {
-                mViewBinding.voiceBtn.setImageResource(R.mipmap.camera_voice_off)
-                isPlayingMic = false
-            }
-
-            override fun onComplete() {
-                mViewBinding.voiceBtn.setImageResource(R.mipmap.camera_voice_off)
-                isPlayingMic = false
-            }
-        })
-    }
-
-    private fun showRecentMedia(isImage: Boolean? = null) {
-        // Implement logic to show recent media if needed
-    }
-
-    private fun updateCameraModeSwitchUI() {
-        mViewBinding.modeSwitchLayout.children.forEach { it ->
-            val tabTv = it as TextView
-            val isSelected = tabTv.id == mCameraModeTabMap[mCameraMode]
-            val typeface = if (isSelected) Typeface.BOLD else Typeface.NORMAL
-            tabTv.typeface = Typeface.defaultFromStyle(typeface)
-            if (isSelected) {
-                0xFFFFFFFF
-            } else {
-                0xFFD7DAE1
-            }.also {
-                tabTv.setTextColor(it.toInt())
-            }
-            tabTv.setShadowLayer(
-                Utils.dp2px(requireContext(), 1F).toFloat(),
-                0F,
-                0F,
-                0xBF000000.toInt()
-            )
-
-            if (isSelected) {
-                R.mipmap.camera_preview_dot_blue
-            } else {
-                R.drawable.camera_bottom_dot_transparent
-            }.also {
-                TextViewCompat.setCompoundDrawablesRelativeWithIntrinsicBounds(tabTv, 0, 0, 0, it)
-            }
-            tabTv.compoundDrawablePadding = 1
-        }
-        mViewBinding.captureBtn.setCaptureViewTheme(CaptureMediaView.CaptureViewTheme.THEME_WHITE)
-        val height = mViewBinding.controlPanelLayout.height
-        mViewBinding.captureBtn.setCaptureMode(mCameraMode)
-        if (mCameraMode == CaptureMediaView.CaptureMode.MODE_CAPTURE_PIC) {
-            val translationX = ObjectAnimator.ofFloat(
-                mViewBinding.controlPanelLayout,
-                "translationY",
-                height.toFloat(),
-                0.0f
-            )
-            translationX.duration = 600
-            translationX.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationStart(animation: Animator) {
-                    super.onAnimationStart(animation)
-                    mViewBinding.controlPanelLayout.visibility = View.VISIBLE
-                }
-            })
-            translationX.start()
-        } else {
-            val translationX = ObjectAnimator.ofFloat(
-                mViewBinding.controlPanelLayout,
-                "translationY",
-                0.0f,
-                height.toFloat()
-            )
-            translationX.duration = 600
-            translationX.addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    super.onAnimationEnd(animation)
-                    mViewBinding.controlPanelLayout.visibility = View.INVISIBLE
-                }
-            })
-            translationX.start()
-        }
-    }
-
-    private fun clickAnimation(v: View, listener: Animator.AnimatorListener) {
-        val scaleXAnim: ObjectAnimator = ObjectAnimator.ofFloat(v, "scaleX", 1.0f, 0.4f, 1.0f)
-        val scaleYAnim: ObjectAnimator = ObjectAnimator.ofFloat(v, "scaleY", 1.0f, 0.4f, 1.0f)
-        val alphaAnim: ObjectAnimator = ObjectAnimator.ofFloat(v, "alpha", 1.0f, 0.4f, 1.0f)
-        val animatorSet = AnimatorSet()
-        animatorSet.duration = 150
-        animatorSet.addListener(listener)
-        animatorSet.playTogether(scaleXAnim, scaleYAnim, alphaAnim)
-        animatorSet.start()
-    }
-
-    private fun startMediaTimer() {
-        mRecTimer?.cancel()
-        mRecTimer = Timer().apply {
-            schedule(object : TimerTask() {
-                override fun run() {
-                    mRecSeconds++
-                    if (mRecSeconds >= 60) {
-                        mRecSeconds = 0
-                        mRecMinute++
-                    }
-                    if (mRecMinute >= 60) {
-                        mRecMinute = 0
-                        mRecHours++
-                        if (mRecHours >= 24) {
-                            mRecHours = 0
-                            mRecMinute = 0
-                            mRecSeconds = 0
-                        }
-                    }
-                    mMainHandler.sendEmptyMessage(WHAT_START_TIMER)
-                }
-            }, 1000, 1000)
-        }
-    }
-
-    override fun onDestroy() {
-        textToSpeech.stop()
-        textToSpeech.shutdown()
-        textRecognizer.close()
-        super.onDestroy()
-    }
-
-    private fun stopMediaTimer() {
-        mRecTimer?.cancel()
-        mRecTimer = null
-        mRecHours = 0
-        mRecMinute = 0
-        mRecSeconds = 0
-        mMainHandler.sendEmptyMessage(WHAT_STOP_TIMER)
-    }
-
-    private fun calculateTime(seconds: Int, minute: Int, hour: Int? = null): String {
-        return buildString {
-            if (hour != null) {
-                append(if (hour < 10) "0$hour" else hour.toString())
-                append(":")
-            }
-            append(if (minute < 10) "0$minute" else minute.toString())
-            append(":")
-            append(if (seconds < 10) "0$seconds" else seconds.toString())
-        }
-    }
-
-    companion object {
-        private const val TAG = "UsbFragment"
-        private const val WHAT_START_TIMER = 0x00
-        private const val WHAT_STOP_TIMER = 0x01
-        private const val DETECTION_INTERVAL_MS = 2000L
-    }
+    fun getCount(): Long = personDB.getCount()
 }
 
 
@@ -1106,201 +892,1725 @@ class UsbFragment : CameraFragment(), View.OnClickListener, CaptureMediaView.OnV
 
 
 
-package com.aditya.`object`
 
-import android.Manifest
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.pm.PackageManager
-import android.hardware.usb.UsbDevice
-import android.hardware.usb.UsbManager
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
-import androidx.core.content.ContextCompat
-import androidx.navigation.findNavController
-import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.setupActionBarWithNavController
-import com.aditya.`object`.databinding.ActivityMainBinding
-import com.jiangdg.usb.USBMonitor
-import com.jiangdg.uvc.UVCCamera
 
-class MainActivity : AppCompatActivity() {
 
-    private lateinit var activityMainBinding: ActivityMainBinding
-    private lateinit var usbMonitor: USBMonitor
-    private var uvcCamera: UVCCamera? = null
-    private var pendingUsbDevice: UsbDevice? = null
+package com.ml.shubham0204.facenet_android.presentation.components
 
-    private val requestCameraPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                Toast.makeText(this, "Camera permission granted", Toast.LENGTH_LONG).show()
-                setupUsbMonitor()
-            } else {
-                Toast.makeText(this, "Camera permission denied", Toast.LENGTH_LONG).show()
-            }
-        }
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 
-    private val usbPermissionActionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val action = intent.action
-            if (ACTION_USB_PERMISSION == action) {
-                synchronized(this) {
-                    val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        device?.let {
-                            pendingUsbDevice = it
-                            navigateToUsbFragment()
-                        }
-                    } else {
-                        Log.d("MainActivity", "Permission denied for device $device")
+private var title = ""
+private var text = ""
+private var positiveButtonText = ""
+private var negativeButtonText = ""
+private lateinit var positiveButtonOnClick: (() -> Unit)
+private lateinit var negativeButtonOnClick: (() -> Unit)
+private val alertDialogShowStatus = mutableStateOf(false)
+
+@Composable
+fun AppAlertDialog() {
+    val visible by remember { alertDialogShowStatus }
+    if (visible) {
+        AlertDialog(
+            title = { Text(text = title) },
+            text = { Text(text = text) },
+            onDismissRequest = { /* All alert dialogs are non-cancellable */ },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        alertDialogShowStatus.value = false
+                        positiveButtonOnClick()
                     }
+                ) {
+                    Text(text = positiveButtonText)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        alertDialogShowStatus.value = false
+                        negativeButtonOnClick()
+                    }
+                ) {
+                    Text(text = negativeButtonText)
+                }
+            }
+        )
+    }
+}
+
+fun createAlertDialog(
+    dialogTitle: String,
+    dialogText: String,
+    dialogPositiveButtonText: String,
+    dialogNegativeButtonText: String?,
+    onPositiveButtonClick: (() -> Unit),
+    onNegativeButtonClick: (() -> Unit)?
+) {
+    title = dialogTitle
+    text = dialogText
+    positiveButtonOnClick = onPositiveButtonClick
+    onNegativeButtonClick?.let { negativeButtonOnClick = it }
+    positiveButtonText = dialogPositiveButtonText
+    dialogNegativeButtonText?.let { negativeButtonText = it }
+    alertDialogShowStatus.value = true
+}
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+
+private val progressDialogVisibleState = mutableStateOf(false)
+private val progressDialogText = mutableStateOf("")
+
+@Composable
+fun AppProgressDialog() {
+    val isVisible by remember { progressDialogVisibleState }
+    if (isVisible) {
+        Dialog(onDismissRequest = { /* Progress dialogs are non-cancellable */ }) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .background(Color.White, shape = RoundedCornerShape(8.dp))
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(vertical = 24.dp)
+                ) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.padding(4.dp))
+                    Text(
+                        text = progressDialogText.value,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    )
                 }
             }
         }
     }
+}
+
+fun setProgressDialogText(message: String) {
+    progressDialogText.value = message
+}
+
+fun showProgressDialog() {
+    progressDialogVisibleState.value = true
+    progressDialogText.value = ""
+}
+
+fun hideProgressDialog() {
+    progressDialogVisibleState.value = false
+}
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.components
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.Composable
+
+@Composable
+fun DelayedVisibility(visible: Boolean, content: @Composable (() -> Unit)) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(1000)),
+        exit = fadeOut(animationSpec = tween(1000))
+    ) {
+        content()
+    }
+}
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.components
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.RectF
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import android.widget.FrameLayout
+import androidx.camera.core.AspectRatio
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.toRectF
+import androidx.core.view.doOnLayout
+import androidx.lifecycle.LifecycleOwner
+import com.ml.shubham0204.facenet_android.presentation.screens.detect_screen.DetectScreenViewModel
+import java.util.concurrent.Executors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+@SuppressLint("ViewConstructor")
+@ExperimentalGetImage
+class FaceDetectionOverlay(
+    private val lifecycleOwner: LifecycleOwner,
+    private val context: Context,
+    private val viewModel: DetectScreenViewModel
+) : FrameLayout(context) {
+
+    private var overlayWidth: Int = 0
+    private var overlayHeight: Int = 0
+
+    private var imageTransform: Matrix = Matrix()
+    private var boundingBoxTransform: Matrix = Matrix()
+    private var isImageTransformedInitialized = false
+    private var isBoundingBoxTransformedInitialized = false
+
+    private lateinit var frameBitmap: Bitmap
+    private var isProcessing = false
+    private var cameraFacing: Int = CameraSelector.LENS_FACING_BACK
+    private lateinit var boundingBoxOverlay: BoundingBoxOverlay
+    private lateinit var previewView: PreviewView
+
+    var predictions: Array<Prediction> = arrayOf()
+
+    init {
+        initializeCamera(cameraFacing)
+        doOnLayout {
+            overlayHeight = it.measuredHeight
+            overlayWidth = it.measuredWidth
+        }
+    }
+
+    fun initializeCamera(cameraFacing: Int) {
+        this.cameraFacing = cameraFacing
+        this.isImageTransformedInitialized = false
+        this.isBoundingBoxTransformedInitialized = false
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        val previewView = PreviewView(context)
+        val executor = ContextCompat.getMainExecutor(context)
+        cameraProviderFuture.addListener(
+            {
+                val cameraProvider = cameraProviderFuture.get()
+                val preview =
+                    Preview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+                val cameraSelector =
+                    CameraSelector.Builder().requireLensFacing(cameraFacing).build()
+                val frameAnalyzer =
+                    ImageAnalysis.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                        .build()
+                frameAnalyzer.setAnalyzer(Executors.newSingleThreadExecutor(), analyzer)
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    preview,
+                    frameAnalyzer
+                )
+            },
+            executor
+        )
+        if (childCount == 2) {
+            removeView(this.previewView)
+            removeView(this.boundingBoxOverlay)
+        }
+        this.previewView = previewView
+        addView(this.previewView)
+
+        val boundingBoxOverlayParams =
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        this.boundingBoxOverlay = BoundingBoxOverlay(context)
+        this.boundingBoxOverlay.setWillNotDraw(false)
+        this.boundingBoxOverlay.setZOrderOnTop(true)
+        addView(this.boundingBoxOverlay, boundingBoxOverlayParams)
+    }
+
+    private val analyzer =
+        ImageAnalysis.Analyzer { image ->
+            if (isProcessing) {
+                image.close()
+                return@Analyzer
+            }
+            isProcessing = true
+
+            // Transform android.net.Image to Bitmap
+            frameBitmap =
+                Bitmap.createBitmap(
+                    image.image!!.width,
+                    image.image!!.height,
+                    Bitmap.Config.ARGB_8888
+                )
+            frameBitmap.copyPixelsFromBuffer(image.planes[0].buffer)
+
+            // Configure frameHeight and frameWidth for output2overlay transformation matrix
+            // and apply it to frameBitmap
+            if (!isImageTransformedInitialized) {
+                imageTransform = Matrix()
+                imageTransform.apply { postRotate(image.imageInfo.rotationDegrees.toFloat()) }
+                isImageTransformedInitialized = true
+            }
+            frameBitmap =
+                Bitmap.createBitmap(
+                    frameBitmap,
+                    0,
+                    0,
+                    frameBitmap.width,
+                    frameBitmap.height,
+                    imageTransform,
+                    false
+                )
+
+            if (!isBoundingBoxTransformedInitialized) {
+                boundingBoxTransform = Matrix()
+                boundingBoxTransform.apply {
+                    setScale(
+                        overlayWidth / frameBitmap.width.toFloat(),
+                        overlayHeight / frameBitmap.height.toFloat()
+                    )
+                    if (cameraFacing == CameraSelector.LENS_FACING_FRONT) {
+                        // Mirror the bounding box coordinates
+                        // for front-facing camera
+                        postScale(
+                            -1f,
+                            1f,
+                            overlayWidth.toFloat() / 2.0f,
+                            overlayHeight.toFloat() / 2.0f
+                        )
+                    }
+                }
+                isBoundingBoxTransformedInitialized = true
+            }
+            CoroutineScope(Dispatchers.Default).launch {
+                val predictions = ArrayList<Prediction>()
+                val (metrics, results) = viewModel.imageVectorUseCase.getNearestPersonName(frameBitmap)
+                results.forEach {
+                    (name, boundingBox) ->
+                    val box = boundingBox.toRectF()
+                    var personName = name
+                    if (viewModel.getNumPeople().toInt() == 0) {
+                        personName = ""
+                    }
+                    boundingBoxTransform.mapRect(box)
+                    predictions.add(Prediction(box, personName))
+                }
+                withContext(Dispatchers.Main) {
+                    viewModel.faceDetectionMetricsState.value = metrics
+                    this@FaceDetectionOverlay.predictions = predictions.toTypedArray()
+                    boundingBoxOverlay.invalidate()
+                    isProcessing = false
+                }
+            }
+            image.close()
+        }
+
+    data class Prediction(var bbox: RectF, var label: String, var maskLabel: String = "")
+
+    inner class BoundingBoxOverlay(context: Context) :
+        SurfaceView(context), SurfaceHolder.Callback {
+
+        private val boxPaint =
+            Paint().apply {
+                color = Color.parseColor("#4D90caf9")
+                style = Paint.Style.FILL
+            }
+        private val textPaint =
+            Paint().apply {
+                strokeWidth = 2.0f
+                textSize = 36f
+                color = Color.WHITE
+            }
+
+        override fun surfaceCreated(holder: SurfaceHolder) {}
+
+        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+
+        override fun surfaceDestroyed(holder: SurfaceHolder) {}
+
+        override fun onDraw(canvas: Canvas) {
+            predictions.forEach {
+                canvas.drawRoundRect(it.bbox, 16f, 16f, boxPaint)
+                canvas.drawText(it.label, it.bbox.centerX(), it.bbox.centerY(), textPaint)
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.screens.add_face
+
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import com.ml.shubham0204.facenet_android.presentation.components.AppProgressDialog
+import com.ml.shubham0204.facenet_android.presentation.components.DelayedVisibility
+import com.ml.shubham0204.facenet_android.presentation.components.hideProgressDialog
+import com.ml.shubham0204.facenet_android.presentation.components.showProgressDialog
+import com.ml.shubham0204.facenet_android.presentation.theme.FaceNetAndroidTheme
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddFaceScreen(onNavigateBack: (() -> Unit)) {
+    FaceNetAndroidTheme {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(text = "Add Faces", style = MaterialTheme.typography.headlineSmall)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                                contentDescription = "Navigate Back"
+                            )
+                        }
+                    }
+                )
+            }
+        ) { innerPadding ->
+            Column(modifier = Modifier.padding(innerPadding)) {
+                val viewModel: AddFaceScreenViewModel = hiltViewModel()
+                ScreenUI(viewModel)
+                ImageReadProgressDialog(viewModel, onNavigateBack)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
+    val pickVisualMediaLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickMultipleVisualMedia()
+        ) {
+            viewModel.selectedImageURIs.value = it
+        }
+    var personName by remember { viewModel.personNameState }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        TextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = personName,
+            onValueChange = { personName = it },
+            label = { Text(text = "Enter the person's name") },
+            singleLine = true
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            Button(
+                enabled = viewModel.personNameState.value.isNotEmpty(),
+                onClick = {
+                    pickVisualMediaLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                }
+            ) {
+                Icon(imageVector = Icons.Default.Photo, contentDescription = "Choose photos")
+                Text(text = "Choose photos")
+            }
+            DelayedVisibility(viewModel.selectedImageURIs.value.isNotEmpty()) {
+                Button(onClick = { viewModel.addImages() }) { Text(text = "Add to database") }
+            }
+        }
+        DelayedVisibility(viewModel.selectedImageURIs.value.isNotEmpty()) {
+            Text(
+                text = "${viewModel.selectedImageURIs.value.size} image(s) selected",
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+        ImagesGrid(viewModel)
+    }
+}
+
+@Composable
+private fun ImagesGrid(viewModel: AddFaceScreenViewModel) {
+    val uris by remember { viewModel.selectedImageURIs }
+    LazyVerticalGrid(columns = GridCells.Fixed(2)) {
+        items(uris) { AsyncImage(model = it, contentDescription = null) }
+    }
+}
+
+@Composable
+private fun ImageReadProgressDialog(viewModel: AddFaceScreenViewModel, onNavigateBack: () -> Unit) {
+    val isProcessing by remember { viewModel.isProcessingImages }
+    val numImagesProcessed by remember { viewModel.numImagesProcessed }
+    val context = LocalContext.current
+    AppProgressDialog()
+    if (isProcessing) {
+        showProgressDialog()
+    } else {
+        if (numImagesProcessed > 0) {
+            onNavigateBack()
+            Toast.makeText(context, "Added to database", Toast.LENGTH_SHORT).show()
+        }
+        hideProgressDialog()
+    }
+}
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.screens.add_face
+
+import android.net.Uri
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.ViewModel
+import com.ml.shubham0204.facenet_android.domain.AppException
+import com.ml.shubham0204.facenet_android.domain.ImageVectorUseCase
+import com.ml.shubham0204.facenet_android.domain.PersonUseCase
+import com.ml.shubham0204.facenet_android.presentation.components.setProgressDialogText
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+@HiltViewModel
+class AddFaceScreenViewModel
+@Inject
+constructor(
+    private val personUseCase: PersonUseCase,
+    private val imageVectorUseCase: ImageVectorUseCase
+) : ViewModel() {
+
+    val personNameState: MutableState<String> = mutableStateOf("")
+    val selectedImageURIs: MutableState<List<Uri>> = mutableStateOf(emptyList())
+
+    val isProcessingImages: MutableState<Boolean> = mutableStateOf(false)
+    val numImagesProcessed: MutableState<Int> = mutableIntStateOf(0)
+
+    fun addImages() {
+        isProcessingImages.value = true
+        CoroutineScope(Dispatchers.Default).launch {
+            val id =
+                personUseCase.addPerson(
+                    personNameState.value,
+                    selectedImageURIs.value.size.toLong()
+                )
+            selectedImageURIs.value.forEach {
+                imageVectorUseCase
+                    .addImage(id, personNameState.value, it)
+                    .onFailure {
+                        val errorMessage = (it as AppException).errorCode.message
+                        setProgressDialogText(errorMessage)
+                    }
+                    .onSuccess {
+                        numImagesProcessed.value += 1
+                        setProgressDialogText("Processed ${numImagesProcessed.value} image(s)")
+                    }
+            }
+            isProcessingImages.value = false
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.screens.detect_screen
+
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.ml.shubham0204.facenet_android.R
+import com.ml.shubham0204.facenet_android.presentation.components.AppAlertDialog
+import com.ml.shubham0204.facenet_android.presentation.components.DelayedVisibility
+import com.ml.shubham0204.facenet_android.presentation.components.FaceDetectionOverlay
+import com.ml.shubham0204.facenet_android.presentation.components.createAlertDialog
+import com.ml.shubham0204.facenet_android.presentation.theme.FaceNetAndroidTheme
+
+private val cameraPermissionStatus = mutableStateOf(false)
+private val cameraFacing = mutableIntStateOf(CameraSelector.LENS_FACING_BACK)
+private lateinit var cameraPermissionLauncher: ManagedActivityResultLauncher<String, Boolean>
+
+@kotlin.OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DetectScreen(onOpenFaceListClick: (() -> Unit)) {
+    FaceNetAndroidTheme {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(),
+                    title = {
+                        Text(
+                            text = stringResource(id = R.string.app_name),
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                    },
+                    actions = {
+                        IconButton(onClick = onOpenFaceListClick) {
+                            Icon(
+                                imageVector = Icons.Default.Face,
+                                contentDescription = "Open Face List"
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                if (cameraFacing.intValue == CameraSelector.LENS_FACING_BACK) {
+                                    cameraFacing.intValue = CameraSelector.LENS_FACING_FRONT
+                                } else {
+                                    cameraFacing.intValue = CameraSelector.LENS_FACING_BACK
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Cameraswitch,
+                                contentDescription = "Switch Camera"
+                            )
+                        }
+                    }
+                )
+            }
+        ) { innerPadding ->
+            Column(modifier = Modifier.padding(innerPadding)) { ScreenUI() }
+        }
+    }
+}
+
+@Composable
+private fun ScreenUI() {
+    val viewModel: DetectScreenViewModel = hiltViewModel()
+    Box {
+        Camera(viewModel)
+        DelayedVisibility(viewModel.getNumPeople() > 0) {
+            val metrics by remember{ viewModel.faceDetectionMetricsState }
+            Column {
+                Text(
+                    text = "Recognition on ${viewModel.getNumPeople()} face(s)",
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                metrics?.let {
+                    Text(
+                        text = "face detection: ${it.timeFaceDetection} ms" +
+                                "\nface embedding: ${it.timeFaceEmbedding} ms\nvector search: ${it.timeVectorSearch} ms",
+                        color = Color.White,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 24.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        DelayedVisibility(viewModel.getNumPeople() == 0L) {
+            Text(
+                text = "No images in database",
+                color = Color.White,
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .background(Color.Blue, RoundedCornerShape(16.dp))
+                    .padding(8.dp),
+                textAlign = TextAlign.Center
+            )
+        }
+        AppAlertDialog()
+    }
+}
+
+@OptIn(ExperimentalGetImage::class)
+@Composable
+private fun Camera(viewModel: DetectScreenViewModel) {
+    val context = LocalContext.current
+    cameraPermissionStatus.value =
+        ActivityCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+    val cameraFacing by remember { cameraFacing }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    cameraPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+            if (it) {
+                cameraPermissionStatus.value = true
+            } else {
+                camaraPermissionDialog()
+            }
+        }
+
+    DelayedVisibility(cameraPermissionStatus.value) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { FaceDetectionOverlay(lifecycleOwner, context, viewModel) },
+            update = { it.initializeCamera(cameraFacing) }
+        )
+    }
+    DelayedVisibility(!cameraPermissionStatus.value) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Allow Camera Permissions\nThe app cannot work without the camera permission.",
+                textAlign = TextAlign.Center
+            )
+            Button(
+                onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(text = "Allow")
+            }
+        }
+    }
+}
+
+private fun camaraPermissionDialog() {
+    createAlertDialog(
+        "Camera Permission",
+        "The app couldn't function without the camera permission.",
+        "ALLOW",
+        "CLOSE",
+        onPositiveButtonClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+        onNegativeButtonClick = {
+            // TODO: Handle deny camera permission action
+            //       close the app
+        }
+    )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.screens.detect_screen
+
+import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.ViewModel
+import com.ml.shubham0204.facenet_android.data.RecognitionMetrics
+import com.ml.shubham0204.facenet_android.domain.ImageVectorUseCase
+import com.ml.shubham0204.facenet_android.domain.PersonUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+@HiltViewModel
+class DetectScreenViewModel
+@Inject
+constructor(val personUseCase: PersonUseCase, val imageVectorUseCase: ImageVectorUseCase) :
+    ViewModel() {
+
+    val faceDetectionMetricsState = mutableStateOf<RecognitionMetrics?>(null)
+
+    fun getNumPeople(): Long = personUseCase.getCount()
+
+}
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.screens.face_list
+
+import android.text.format.DateUtils
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.ml.shubham0204.facenet_android.data.PersonRecord
+import com.ml.shubham0204.facenet_android.presentation.components.AppAlertDialog
+import com.ml.shubham0204.facenet_android.presentation.components.createAlertDialog
+import com.ml.shubham0204.facenet_android.presentation.theme.FaceNetAndroidTheme
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FaceListScreen(onNavigateBack: (() -> Unit), onAddFaceClick: (() -> Unit)) {
+    FaceNetAndroidTheme {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(text = "Face List", style = MaterialTheme.typography.headlineSmall)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                                contentDescription = "Navigate Back"
+                            )
+                        }
+                    },
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(onClick = onAddFaceClick) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = "Add a new face")
+                }
+            }
+        ) { innerPadding ->
+            val viewModel: FaceListScreenViewModel = hiltViewModel()
+            Column(modifier = Modifier.padding(innerPadding)) {
+                ScreenUI(viewModel)
+                AppAlertDialog()
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScreenUI(viewModel: FaceListScreenViewModel) {
+    val faces by viewModel.personFlow.collectAsState(emptyList())
+    LazyColumn { items(faces) { FaceListItem(it) { viewModel.removeFace(it.personID) } } }
+}
+
+@Composable
+private fun FaceListItem(personRecord: PersonRecord, onRemoveFaceClick: (() -> Unit)) {
+    Row(
+        modifier = Modifier.fillMaxWidth().background(Color.White).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Text(
+                text = personRecord.personName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = DateUtils.getRelativeTimeSpanString(personRecord.addTime).toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.DarkGray
+            )
+        }
+        Icon(
+            modifier =
+                Modifier.clickable {
+                    createAlertDialog(
+                        dialogTitle = "Remove person",
+                        dialogText =
+                            "Are you sure to remove this person from the database. The face for this person will not " +
+                                "be detected in realtime",
+                        dialogPositiveButtonText = "Remove",
+                        onPositiveButtonClick = onRemoveFaceClick,
+                        dialogNegativeButtonText = "Cancel",
+                        onNegativeButtonClick = {}
+                    )
+                },
+            imageVector = Icons.Default.Clear,
+            contentDescription = "Remove face"
+        )
+        Spacer(modifier = Modifier.width(2.dp))
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.screens.face_list
+
+import androidx.lifecycle.ViewModel
+import com.ml.shubham0204.facenet_android.domain.ImageVectorUseCase
+import com.ml.shubham0204.facenet_android.domain.PersonUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+@HiltViewModel
+class FaceListScreenViewModel
+@Inject
+constructor(val imageVectorUseCase: ImageVectorUseCase, val personUseCase: PersonUseCase) :
+    ViewModel() {
+
+    val personFlow = personUseCase.getAll()
+
+    // Remove the person from PersonRecord
+    // and all associated face embeddings from FaceImageRecord
+    fun removeFace(id: Long) {
+        personUseCase.removePerson(id)
+        imageVectorUseCase.removeImages(id)
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.theme
+
+import androidx.compose.ui.graphics.Color
+
+val primaryLight = Color(0xFF004DA6)
+val onPrimaryLight = Color(0xFFFFFFFF)
+val primaryContainerLight = Color(0xFF2771DF)
+val onPrimaryContainerLight = Color(0xFFFFFFFF)
+val secondaryLight = Color(0xFF4B5E88)
+val onSecondaryLight = Color(0xFFFFFFFF)
+val secondaryContainerLight = Color(0xFFC4D4FF)
+val onSecondaryContainerLight = Color(0xFF2C3F67)
+val tertiaryLight = Color(0xFF430093)
+val onTertiaryLight = Color(0xFFFFFFFF)
+val tertiaryContainerLight = Color(0xFF6B25D2)
+val onTertiaryContainerLight = Color(0xFFFEF7FF)
+val errorLight = Color(0xFFBA1A1A)
+val onErrorLight = Color(0xFFFFFFFF)
+val errorContainerLight = Color(0xFFFFDAD6)
+val onErrorContainerLight = Color(0xFF410002)
+val backgroundLight = Color(0xFFF9F9FF)
+val onBackgroundLight = Color(0xFF191B22)
+val surfaceLight = Color(0xFFFCF8F8)
+val onSurfaceLight = Color(0xFF1C1B1B)
+val surfaceVariantLight = Color(0xFFE0E3E3)
+val onSurfaceVariantLight = Color(0xFF444748)
+val outlineLight = Color(0xFF747878)
+val outlineVariantLight = Color(0xFFC4C7C7)
+val scrimLight = Color(0xFF000000)
+val inverseSurfaceLight = Color(0xFF313030)
+val inverseOnSurfaceLight = Color(0xFFF4F0EF)
+val inversePrimaryLight = Color(0xFFADC6FF)
+val surfaceDimLight = Color(0xFFDDD9D9)
+val surfaceBrightLight = Color(0xFFFCF8F8)
+val surfaceContainerLowestLight = Color(0xFFFFFFFF)
+val surfaceContainerLowLight = Color(0xFFF6F3F2)
+val surfaceContainerLight = Color(0xFFF1EDEC)
+val surfaceContainerHighLight = Color(0xFFEBE7E7)
+val surfaceContainerHighestLight = Color(0xFFE5E2E1)
+
+val primaryLightMediumContrast = Color(0xFF00408C)
+val onPrimaryLightMediumContrast = Color(0xFFFFFFFF)
+val primaryContainerLightMediumContrast = Color(0xFF2771DF)
+val onPrimaryContainerLightMediumContrast = Color(0xFFFFFFFF)
+val secondaryLightMediumContrast = Color(0xFF2F426B)
+val onSecondaryLightMediumContrast = Color(0xFFFFFFFF)
+val secondaryContainerLightMediumContrast = Color(0xFF6174A0)
+val onSecondaryContainerLightMediumContrast = Color(0xFFFFFFFF)
+val tertiaryLightMediumContrast = Color(0xFF430093)
+val onTertiaryLightMediumContrast = Color(0xFFFFFFFF)
+val tertiaryContainerLightMediumContrast = Color(0xFF6B25D2)
+val onTertiaryContainerLightMediumContrast = Color(0xFFFFFFFF)
+val errorLightMediumContrast = Color(0xFF8C0009)
+val onErrorLightMediumContrast = Color(0xFFFFFFFF)
+val errorContainerLightMediumContrast = Color(0xFFDA342E)
+val onErrorContainerLightMediumContrast = Color(0xFFFFFFFF)
+val backgroundLightMediumContrast = Color(0xFFF9F9FF)
+val onBackgroundLightMediumContrast = Color(0xFF191B22)
+val surfaceLightMediumContrast = Color(0xFFFCF8F8)
+val onSurfaceLightMediumContrast = Color(0xFF1C1B1B)
+val surfaceVariantLightMediumContrast = Color(0xFFE0E3E3)
+val onSurfaceVariantLightMediumContrast = Color(0xFF404344)
+val outlineLightMediumContrast = Color(0xFF5C6060)
+val outlineVariantLightMediumContrast = Color(0xFF787B7C)
+val scrimLightMediumContrast = Color(0xFF000000)
+val inverseSurfaceLightMediumContrast = Color(0xFF313030)
+val inverseOnSurfaceLightMediumContrast = Color(0xFFF4F0EF)
+val inversePrimaryLightMediumContrast = Color(0xFFADC6FF)
+val surfaceDimLightMediumContrast = Color(0xFFDDD9D9)
+val surfaceBrightLightMediumContrast = Color(0xFFFCF8F8)
+val surfaceContainerLowestLightMediumContrast = Color(0xFFFFFFFF)
+val surfaceContainerLowLightMediumContrast = Color(0xFFF6F3F2)
+val surfaceContainerLightMediumContrast = Color(0xFFF1EDEC)
+val surfaceContainerHighLightMediumContrast = Color(0xFFEBE7E7)
+val surfaceContainerHighestLightMediumContrast = Color(0xFFE5E2E1)
+
+val primaryLightHighContrast = Color(0xFF00204E)
+val onPrimaryLightHighContrast = Color(0xFFFFFFFF)
+val primaryContainerLightHighContrast = Color(0xFF00408C)
+val onPrimaryContainerLightHighContrast = Color(0xFFFFFFFF)
+val secondaryLightHighContrast = Color(0xFF0A2148)
+val onSecondaryLightHighContrast = Color(0xFFFFFFFF)
+val secondaryContainerLightHighContrast = Color(0xFF2F426B)
+val onSecondaryContainerLightHighContrast = Color(0xFFFFFFFF)
+val tertiaryLightHighContrast = Color(0xFF2E0069)
+val onTertiaryLightHighContrast = Color(0xFFFFFFFF)
+val tertiaryContainerLightHighContrast = Color(0xFF5700BA)
+val onTertiaryContainerLightHighContrast = Color(0xFFFFFFFF)
+val errorLightHighContrast = Color(0xFF4E0002)
+val onErrorLightHighContrast = Color(0xFFFFFFFF)
+val errorContainerLightHighContrast = Color(0xFF8C0009)
+val onErrorContainerLightHighContrast = Color(0xFFFFFFFF)
+val backgroundLightHighContrast = Color(0xFFF9F9FF)
+val onBackgroundLightHighContrast = Color(0xFF191B22)
+val surfaceLightHighContrast = Color(0xFFFCF8F8)
+val onSurfaceLightHighContrast = Color(0xFF000000)
+val surfaceVariantLightHighContrast = Color(0xFFE0E3E3)
+val onSurfaceVariantLightHighContrast = Color(0xFF212525)
+val outlineLightHighContrast = Color(0xFF404344)
+val outlineVariantLightHighContrast = Color(0xFF404344)
+val scrimLightHighContrast = Color(0xFF000000)
+val inverseSurfaceLightHighContrast = Color(0xFF313030)
+val inverseOnSurfaceLightHighContrast = Color(0xFFFFFFFF)
+val inversePrimaryLightHighContrast = Color(0xFFE6ECFF)
+val surfaceDimLightHighContrast = Color(0xFFDDD9D9)
+val surfaceBrightLightHighContrast = Color(0xFFFCF8F8)
+val surfaceContainerLowestLightHighContrast = Color(0xFFFFFFFF)
+val surfaceContainerLowLightHighContrast = Color(0xFFF6F3F2)
+val surfaceContainerLightHighContrast = Color(0xFFF1EDEC)
+val surfaceContainerHighLightHighContrast = Color(0xFFEBE7E7)
+val surfaceContainerHighestLightHighContrast = Color(0xFFE5E2E1)
+
+val primaryDark = Color(0xFFADC6FF)
+val onPrimaryDark = Color(0xFF002E69)
+val primaryContainerDark = Color(0xFF2771DF)
+val onPrimaryContainerDark = Color(0xFFFFFFFF)
+val secondaryDark = Color(0xFFF3F4FF)
+val onSecondaryDark = Color(0xFF1B2F57)
+val secondaryContainerDark = Color(0xFFB7CAFB)
+val onSecondaryContainerDark = Color(0xFF243860)
+val tertiaryDark = Color(0xFFD4BBFF)
+val onTertiaryDark = Color(0xFF40008C)
+val tertiaryContainerDark = Color(0xFF5200AE)
+val onTertiaryContainerDark = Color(0xFFDEC9FF)
+val errorDark = Color(0xFFFFB4AB)
+val onErrorDark = Color(0xFF690005)
+val errorContainerDark = Color(0xFF93000A)
+val onErrorContainerDark = Color(0xFFFFDAD6)
+val backgroundDark = Color(0xFF11131A)
+val onBackgroundDark = Color(0xFFE1E2EB)
+val surfaceDark = Color(0xFF141313)
+val onSurfaceDark = Color(0xFFE5E2E1)
+val surfaceVariantDark = Color(0xFF444748)
+val onSurfaceVariantDark = Color(0xFFC4C7C7)
+val outlineDark = Color(0xFF8E9192)
+val outlineVariantDark = Color(0xFF444748)
+val scrimDark = Color(0xFF000000)
+val inverseSurfaceDark = Color(0xFFE5E2E1)
+val inverseOnSurfaceDark = Color(0xFF313030)
+val inversePrimaryDark = Color(0xFF005AC1)
+val surfaceDimDark = Color(0xFF141313)
+val surfaceBrightDark = Color(0xFF3A3939)
+val surfaceContainerLowestDark = Color(0xFF0E0E0E)
+val surfaceContainerLowDark = Color(0xFF1C1B1B)
+val surfaceContainerDark = Color(0xFF201F1F)
+val surfaceContainerHighDark = Color(0xFF2A2A2A)
+val surfaceContainerHighestDark = Color(0xFF353434)
+
+val primaryDarkMediumContrast = Color(0xFFB4CBFF)
+val onPrimaryDarkMediumContrast = Color(0xFF001537)
+val primaryContainerDarkMediumContrast = Color(0xFF4D8EFE)
+val onPrimaryContainerDarkMediumContrast = Color(0xFF000000)
+val secondaryDarkMediumContrast = Color(0xFFF3F4FF)
+val onSecondaryDarkMediumContrast = Color(0xFF1B2F57)
+val secondaryContainerDarkMediumContrast = Color(0xFFB7CAFB)
+val onSecondaryContainerDarkMediumContrast = Color(0xFF001438)
+val tertiaryDarkMediumContrast = Color(0xFFD7C0FF)
+val onTertiaryDarkMediumContrast = Color(0xFF1F004B)
+val tertiaryContainerDarkMediumContrast = Color(0xFFA675FF)
+val onTertiaryContainerDarkMediumContrast = Color(0xFF000000)
+val errorDarkMediumContrast = Color(0xFFFFBAB1)
+val onErrorDarkMediumContrast = Color(0xFF370001)
+val errorContainerDarkMediumContrast = Color(0xFFFF5449)
+val onErrorContainerDarkMediumContrast = Color(0xFF000000)
+val backgroundDarkMediumContrast = Color(0xFF11131A)
+val onBackgroundDarkMediumContrast = Color(0xFFE1E2EB)
+val surfaceDarkMediumContrast = Color(0xFF141313)
+val onSurfaceDarkMediumContrast = Color(0xFFFEFAF9)
+val surfaceVariantDarkMediumContrast = Color(0xFF444748)
+val onSurfaceVariantDarkMediumContrast = Color(0xFFC8CBCC)
+val outlineDarkMediumContrast = Color(0xFFA0A3A4)
+val outlineVariantDarkMediumContrast = Color(0xFF808484)
+val scrimDarkMediumContrast = Color(0xFF000000)
+val inverseSurfaceDarkMediumContrast = Color(0xFFE5E2E1)
+val inverseOnSurfaceDarkMediumContrast = Color(0xFF2A2A2A)
+val inversePrimaryDarkMediumContrast = Color(0xFF004596)
+val surfaceDimDarkMediumContrast = Color(0xFF141313)
+val surfaceBrightDarkMediumContrast = Color(0xFF3A3939)
+val surfaceContainerLowestDarkMediumContrast = Color(0xFF0E0E0E)
+val surfaceContainerLowDarkMediumContrast = Color(0xFF1C1B1B)
+val surfaceContainerDarkMediumContrast = Color(0xFF201F1F)
+val surfaceContainerHighDarkMediumContrast = Color(0xFF2A2A2A)
+val surfaceContainerHighestDarkMediumContrast = Color(0xFF353434)
+
+val primaryDarkHighContrast = Color(0xFFFBFAFF)
+val onPrimaryDarkHighContrast = Color(0xFF000000)
+val primaryContainerDarkHighContrast = Color(0xFFB4CBFF)
+val onPrimaryContainerDarkHighContrast = Color(0xFF000000)
+val secondaryDarkHighContrast = Color(0xFFFCFAFF)
+val onSecondaryDarkHighContrast = Color(0xFF000000)
+val secondaryContainerDarkHighContrast = Color(0xFFB7CAFB)
+val onSecondaryContainerDarkHighContrast = Color(0xFF000000)
+val tertiaryDarkHighContrast = Color(0xFFFFF9FE)
+val onTertiaryDarkHighContrast = Color(0xFF000000)
+val tertiaryContainerDarkHighContrast = Color(0xFFD7C0FF)
+val onTertiaryContainerDarkHighContrast = Color(0xFF000000)
+val errorDarkHighContrast = Color(0xFFFFF9F9)
+val onErrorDarkHighContrast = Color(0xFF000000)
+val errorContainerDarkHighContrast = Color(0xFFFFBAB1)
+val onErrorContainerDarkHighContrast = Color(0xFF000000)
+val backgroundDarkHighContrast = Color(0xFF11131A)
+val onBackgroundDarkHighContrast = Color(0xFFE1E2EB)
+val surfaceDarkHighContrast = Color(0xFF141313)
+val onSurfaceDarkHighContrast = Color(0xFFFFFFFF)
+val surfaceVariantDarkHighContrast = Color(0xFF444748)
+val onSurfaceVariantDarkHighContrast = Color(0xFFF8FBFC)
+val outlineDarkHighContrast = Color(0xFFC8CBCC)
+val outlineVariantDarkHighContrast = Color(0xFFC8CBCC)
+val scrimDarkHighContrast = Color(0xFF000000)
+val inverseSurfaceDarkHighContrast = Color(0xFFE5E2E1)
+val inverseOnSurfaceDarkHighContrast = Color(0xFF000000)
+val inversePrimaryDarkHighContrast = Color(0xFF00285D)
+val surfaceDimDarkHighContrast = Color(0xFF141313)
+val surfaceBrightDarkHighContrast = Color(0xFF3A3939)
+val surfaceContainerLowestDarkHighContrast = Color(0xFF0E0E0E)
+val surfaceContainerLowDarkHighContrast = Color(0xFF1C1B1B)
+val surfaceContainerDarkHighContrast = Color(0xFF201F1F)
+val surfaceContainerHighDarkHighContrast = Color(0xFF2A2A2A)
+val surfaceContainerHighestDarkHighContrast = Color(0xFF353434)
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.theme
+
+import android.app.Activity
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+
+private val lightScheme =
+    lightColorScheme(
+        primary = primaryLight,
+        onPrimary = onPrimaryLight,
+        primaryContainer = primaryContainerLight,
+        onPrimaryContainer = onPrimaryContainerLight,
+        secondary = secondaryLight,
+        onSecondary = onSecondaryLight,
+        secondaryContainer = secondaryContainerLight,
+        onSecondaryContainer = onSecondaryContainerLight,
+        tertiary = tertiaryLight,
+        onTertiary = onTertiaryLight,
+        tertiaryContainer = tertiaryContainerLight,
+        onTertiaryContainer = onTertiaryContainerLight,
+        error = errorLight,
+        onError = onErrorLight,
+        errorContainer = errorContainerLight,
+        onErrorContainer = onErrorContainerLight,
+        background = backgroundLight,
+        onBackground = onBackgroundLight,
+        surface = surfaceLight,
+        onSurface = onSurfaceLight,
+        surfaceVariant = surfaceVariantLight,
+        onSurfaceVariant = onSurfaceVariantLight,
+        outline = outlineLight,
+        outlineVariant = outlineVariantLight,
+        scrim = scrimLight,
+        inverseSurface = inverseSurfaceLight,
+        inverseOnSurface = inverseOnSurfaceLight,
+        inversePrimary = inversePrimaryLight,
+        surfaceDim = surfaceDimLight,
+        surfaceBright = surfaceBrightLight,
+        surfaceContainerLowest = surfaceContainerLowestLight,
+        surfaceContainerLow = surfaceContainerLowLight,
+        surfaceContainer = surfaceContainerLight,
+        surfaceContainerHigh = surfaceContainerHighLight,
+        surfaceContainerHighest = surfaceContainerHighestLight,
+    )
+
+private val darkScheme =
+    darkColorScheme(
+        primary = primaryDark,
+        onPrimary = onPrimaryDark,
+        primaryContainer = primaryContainerDark,
+        onPrimaryContainer = onPrimaryContainerDark,
+        secondary = secondaryDark,
+        onSecondary = onSecondaryDark,
+        secondaryContainer = secondaryContainerDark,
+        onSecondaryContainer = onSecondaryContainerDark,
+        tertiary = tertiaryDark,
+        onTertiary = onTertiaryDark,
+        tertiaryContainer = tertiaryContainerDark,
+        onTertiaryContainer = onTertiaryContainerDark,
+        error = errorDark,
+        onError = onErrorDark,
+        errorContainer = errorContainerDark,
+        onErrorContainer = onErrorContainerDark,
+        background = backgroundDark,
+        onBackground = onBackgroundDark,
+        surface = surfaceDark,
+        onSurface = onSurfaceDark,
+        surfaceVariant = surfaceVariantDark,
+        onSurfaceVariant = onSurfaceVariantDark,
+        outline = outlineDark,
+        outlineVariant = outlineVariantDark,
+        scrim = scrimDark,
+        inverseSurface = inverseSurfaceDark,
+        inverseOnSurface = inverseOnSurfaceDark,
+        inversePrimary = inversePrimaryDark,
+        surfaceDim = surfaceDimDark,
+        surfaceBright = surfaceBrightDark,
+        surfaceContainerLowest = surfaceContainerLowestDark,
+        surfaceContainerLow = surfaceContainerLowDark,
+        surfaceContainer = surfaceContainerDark,
+        surfaceContainerHigh = surfaceContainerHighDark,
+        surfaceContainerHighest = surfaceContainerHighestDark,
+    )
+
+private val mediumContrastLightColorScheme =
+    lightColorScheme(
+        primary = primaryLightMediumContrast,
+        onPrimary = onPrimaryLightMediumContrast,
+        primaryContainer = primaryContainerLightMediumContrast,
+        onPrimaryContainer = onPrimaryContainerLightMediumContrast,
+        secondary = secondaryLightMediumContrast,
+        onSecondary = onSecondaryLightMediumContrast,
+        secondaryContainer = secondaryContainerLightMediumContrast,
+        onSecondaryContainer = onSecondaryContainerLightMediumContrast,
+        tertiary = tertiaryLightMediumContrast,
+        onTertiary = onTertiaryLightMediumContrast,
+        tertiaryContainer = tertiaryContainerLightMediumContrast,
+        onTertiaryContainer = onTertiaryContainerLightMediumContrast,
+        error = errorLightMediumContrast,
+        onError = onErrorLightMediumContrast,
+        errorContainer = errorContainerLightMediumContrast,
+        onErrorContainer = onErrorContainerLightMediumContrast,
+        background = backgroundLightMediumContrast,
+        onBackground = onBackgroundLightMediumContrast,
+        surface = surfaceLightMediumContrast,
+        onSurface = onSurfaceLightMediumContrast,
+        surfaceVariant = surfaceVariantLightMediumContrast,
+        onSurfaceVariant = onSurfaceVariantLightMediumContrast,
+        outline = outlineLightMediumContrast,
+        outlineVariant = outlineVariantLightMediumContrast,
+        scrim = scrimLightMediumContrast,
+        inverseSurface = inverseSurfaceLightMediumContrast,
+        inverseOnSurface = inverseOnSurfaceLightMediumContrast,
+        inversePrimary = inversePrimaryLightMediumContrast,
+        surfaceDim = surfaceDimLightMediumContrast,
+        surfaceBright = surfaceBrightLightMediumContrast,
+        surfaceContainerLowest = surfaceContainerLowestLightMediumContrast,
+        surfaceContainerLow = surfaceContainerLowLightMediumContrast,
+        surfaceContainer = surfaceContainerLightMediumContrast,
+        surfaceContainerHigh = surfaceContainerHighLightMediumContrast,
+        surfaceContainerHighest = surfaceContainerHighestLightMediumContrast,
+    )
+
+private val highContrastLightColorScheme =
+    lightColorScheme(
+        primary = primaryLightHighContrast,
+        onPrimary = onPrimaryLightHighContrast,
+        primaryContainer = primaryContainerLightHighContrast,
+        onPrimaryContainer = onPrimaryContainerLightHighContrast,
+        secondary = secondaryLightHighContrast,
+        onSecondary = onSecondaryLightHighContrast,
+        secondaryContainer = secondaryContainerLightHighContrast,
+        onSecondaryContainer = onSecondaryContainerLightHighContrast,
+        tertiary = tertiaryLightHighContrast,
+        onTertiary = onTertiaryLightHighContrast,
+        tertiaryContainer = tertiaryContainerLightHighContrast,
+        onTertiaryContainer = onTertiaryContainerLightHighContrast,
+        error = errorLightHighContrast,
+        onError = onErrorLightHighContrast,
+        errorContainer = errorContainerLightHighContrast,
+        onErrorContainer = onErrorContainerLightHighContrast,
+        background = backgroundLightHighContrast,
+        onBackground = onBackgroundLightHighContrast,
+        surface = surfaceLightHighContrast,
+        onSurface = onSurfaceLightHighContrast,
+        surfaceVariant = surfaceVariantLightHighContrast,
+        onSurfaceVariant = onSurfaceVariantLightHighContrast,
+        outline = outlineLightHighContrast,
+        outlineVariant = outlineVariantLightHighContrast,
+        scrim = scrimLightHighContrast,
+        inverseSurface = inverseSurfaceLightHighContrast,
+        inverseOnSurface = inverseOnSurfaceLightHighContrast,
+        inversePrimary = inversePrimaryLightHighContrast,
+        surfaceDim = surfaceDimLightHighContrast,
+        surfaceBright = surfaceBrightLightHighContrast,
+        surfaceContainerLowest = surfaceContainerLowestLightHighContrast,
+        surfaceContainerLow = surfaceContainerLowLightHighContrast,
+        surfaceContainer = surfaceContainerLightHighContrast,
+        surfaceContainerHigh = surfaceContainerHighLightHighContrast,
+        surfaceContainerHighest = surfaceContainerHighestLightHighContrast,
+    )
+
+private val mediumContrastDarkColorScheme =
+    darkColorScheme(
+        primary = primaryDarkMediumContrast,
+        onPrimary = onPrimaryDarkMediumContrast,
+        primaryContainer = primaryContainerDarkMediumContrast,
+        onPrimaryContainer = onPrimaryContainerDarkMediumContrast,
+        secondary = secondaryDarkMediumContrast,
+        onSecondary = onSecondaryDarkMediumContrast,
+        secondaryContainer = secondaryContainerDarkMediumContrast,
+        onSecondaryContainer = onSecondaryContainerDarkMediumContrast,
+        tertiary = tertiaryDarkMediumContrast,
+        onTertiary = onTertiaryDarkMediumContrast,
+        tertiaryContainer = tertiaryContainerDarkMediumContrast,
+        onTertiaryContainer = onTertiaryContainerDarkMediumContrast,
+        error = errorDarkMediumContrast,
+        onError = onErrorDarkMediumContrast,
+        errorContainer = errorContainerDarkMediumContrast,
+        onErrorContainer = onErrorContainerDarkMediumContrast,
+        background = backgroundDarkMediumContrast,
+        onBackground = onBackgroundDarkMediumContrast,
+        surface = surfaceDarkMediumContrast,
+        onSurface = onSurfaceDarkMediumContrast,
+        surfaceVariant = surfaceVariantDarkMediumContrast,
+        onSurfaceVariant = onSurfaceVariantDarkMediumContrast,
+        outline = outlineDarkMediumContrast,
+        outlineVariant = outlineVariantDarkMediumContrast,
+        scrim = scrimDarkMediumContrast,
+        inverseSurface = inverseSurfaceDarkMediumContrast,
+        inverseOnSurface = inverseOnSurfaceDarkMediumContrast,
+        inversePrimary = inversePrimaryDarkMediumContrast,
+        surfaceDim = surfaceDimDarkMediumContrast,
+        surfaceBright = surfaceBrightDarkMediumContrast,
+        surfaceContainerLowest = surfaceContainerLowestDarkMediumContrast,
+        surfaceContainerLow = surfaceContainerLowDarkMediumContrast,
+        surfaceContainer = surfaceContainerDarkMediumContrast,
+        surfaceContainerHigh = surfaceContainerHighDarkMediumContrast,
+        surfaceContainerHighest = surfaceContainerHighestDarkMediumContrast,
+    )
+
+private val highContrastDarkColorScheme =
+    darkColorScheme(
+        primary = primaryDarkHighContrast,
+        onPrimary = onPrimaryDarkHighContrast,
+        primaryContainer = primaryContainerDarkHighContrast,
+        onPrimaryContainer = onPrimaryContainerDarkHighContrast,
+        secondary = secondaryDarkHighContrast,
+        onSecondary = onSecondaryDarkHighContrast,
+        secondaryContainer = secondaryContainerDarkHighContrast,
+        onSecondaryContainer = onSecondaryContainerDarkHighContrast,
+        tertiary = tertiaryDarkHighContrast,
+        onTertiary = onTertiaryDarkHighContrast,
+        tertiaryContainer = tertiaryContainerDarkHighContrast,
+        onTertiaryContainer = onTertiaryContainerDarkHighContrast,
+        error = errorDarkHighContrast,
+        onError = onErrorDarkHighContrast,
+        errorContainer = errorContainerDarkHighContrast,
+        onErrorContainer = onErrorContainerDarkHighContrast,
+        background = backgroundDarkHighContrast,
+        onBackground = onBackgroundDarkHighContrast,
+        surface = surfaceDarkHighContrast,
+        onSurface = onSurfaceDarkHighContrast,
+        surfaceVariant = surfaceVariantDarkHighContrast,
+        onSurfaceVariant = onSurfaceVariantDarkHighContrast,
+        outline = outlineDarkHighContrast,
+        outlineVariant = outlineVariantDarkHighContrast,
+        scrim = scrimDarkHighContrast,
+        inverseSurface = inverseSurfaceDarkHighContrast,
+        inverseOnSurface = inverseOnSurfaceDarkHighContrast,
+        inversePrimary = inversePrimaryDarkHighContrast,
+        surfaceDim = surfaceDimDarkHighContrast,
+        surfaceBright = surfaceBrightDarkHighContrast,
+        surfaceContainerLowest = surfaceContainerLowestDarkHighContrast,
+        surfaceContainerLow = surfaceContainerLowDarkHighContrast,
+        surfaceContainer = surfaceContainerDarkHighContrast,
+        surfaceContainerHigh = surfaceContainerHighDarkHighContrast,
+        surfaceContainerHighest = surfaceContainerHighestDarkHighContrast,
+    )
+
+@Immutable
+data class ColorFamily(
+    val color: Color,
+    val onColor: Color,
+    val colorContainer: Color,
+    val onColorContainer: Color
+)
+
+val unspecified_scheme =
+    ColorFamily(Color.Unspecified, Color.Unspecified, Color.Unspecified, Color.Unspecified)
+
+@Composable
+fun FaceNetAndroidTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    // Dynamic color is available on Android 12+
+    dynamicColor: Boolean = true,
+    content: @Composable() () -> Unit
+) {
+    val colorScheme =
+        when {
+            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                val context = LocalContext.current
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            }
+            darkTheme -> darkScheme
+            else -> lightScheme
+        }
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.primary.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+        }
+    }
+    MaterialTheme(colorScheme = colorScheme, typography = AppTypography, content = content)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android.presentation.theme
+
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.googlefonts.Font
+import androidx.compose.ui.text.googlefonts.GoogleFont
+import com.ml.shubham0204.facenet_android.R
+
+val provider =
+    GoogleFont.Provider(
+        providerAuthority = "com.google.android.gms.fonts",
+        providerPackage = "com.google.android.gms",
+        certificates = R.array.com_google_android_gms_fonts_certs
+    )
+
+val bodyFontFamily =
+    FontFamily(
+        Font(
+            googleFont = GoogleFont("Roboto"),
+            fontProvider = provider,
+        )
+    )
+
+val displayFontFamily =
+    FontFamily(
+        Font(
+            googleFont = GoogleFont("Work Sans"),
+            fontProvider = provider,
+        )
+    )
+
+// Default Material 3 typography values
+val baseline = Typography()
+
+val AppTypography =
+    Typography(
+        displayLarge = baseline.displayLarge.copy(fontFamily = displayFontFamily),
+        displayMedium = baseline.displayMedium.copy(fontFamily = displayFontFamily),
+        displaySmall = baseline.displaySmall.copy(fontFamily = displayFontFamily),
+        headlineLarge = baseline.headlineLarge.copy(fontFamily = displayFontFamily),
+        headlineMedium = baseline.headlineMedium.copy(fontFamily = displayFontFamily),
+        headlineSmall = baseline.headlineSmall.copy(fontFamily = displayFontFamily),
+        titleLarge = baseline.titleLarge.copy(fontFamily = displayFontFamily),
+        titleMedium = baseline.titleMedium.copy(fontFamily = displayFontFamily),
+        titleSmall = baseline.titleSmall.copy(fontFamily = displayFontFamily),
+        bodyLarge = baseline.bodyLarge.copy(fontFamily = bodyFontFamily),
+        bodyMedium = baseline.bodyMedium.copy(fontFamily = bodyFontFamily),
+        bodySmall = baseline.bodySmall.copy(fontFamily = bodyFontFamily),
+        labelLarge = baseline.labelLarge.copy(fontFamily = bodyFontFamily),
+        labelMedium = baseline.labelMedium.copy(fontFamily = bodyFontFamily),
+        labelSmall = baseline.labelSmall.copy(fontFamily = bodyFontFamily),
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+package com.ml.shubham0204.facenet_android
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.ml.shubham0204.facenet_android.presentation.screens.add_face.AddFaceScreen
+import com.ml.shubham0204.facenet_android.presentation.screens.detect_screen.DetectScreen
+import com.ml.shubham0204.facenet_android.presentation.screens.face_list.FaceListScreen
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        activityMainBinding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(activityMainBinding.root)
-
-        // Set up the toolbar as the ActionBar
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        setSupportActionBar(toolbar)
-
-        // Check for camera permission and set up USB monitor
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED) {
-            setupUsbMonitor()
-        } else {
-            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-
-        // Setup action bar for navigation
-        val navHostFragment =
-            supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-        val navController = navHostFragment.navController
-        setupActionBarWithNavController(navController)
-    }
-
-    private fun setupUsbMonitor() {
-        usbMonitor = USBMonitor(this, object : USBMonitor.OnDeviceConnectListener {
-            override fun onAttach(device: UsbDevice) {
-                if (!usbMonitor.hasPermission(device)) {
-                    Log.d("MainActivity", "Requesting USB permission for device: $device")
-                    usbMonitor.requestPermission(device)
-                } else {
-                    pendingUsbDevice = device
-                    navigateToUsbFragment()
+        enableEdgeToEdge()
+        setContent {
+            val navHostController = rememberNavController()
+            NavHost(
+                navController = navHostController,
+                startDestination = "detect",
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() }
+            ) {
+                composable("add-face") { AddFaceScreen { navHostController.navigateUp() } }
+                composable("detect") { DetectScreen { navHostController.navigate("face-list") } }
+                composable("face-list") {
+                    FaceListScreen(
+                        onNavigateBack = { navHostController.navigateUp() },
+                        onAddFaceClick = { navHostController.navigate("add-face") }
+                    )
                 }
             }
-
-            override fun onDetach(device: UsbDevice?) {
-                device?.let {
-                    Log.d("MainActivity", "USB device detached: $device")
-                    uvcCamera?.stopPreview()
-                    uvcCamera?.close()
-                    uvcCamera = null
-                }
-            }
-
-            override fun onConnect(device: UsbDevice, ctrlBlock: USBMonitor.UsbControlBlock, createNew: Boolean) {
-                if (!usbMonitor.hasPermission(device)) {
-                    Toast.makeText(this@MainActivity, "USB permission denied", Toast.LENGTH_SHORT).show()
-                    return
-                }
-                pendingUsbDevice = device
-                navigateToUsbFragment()
-            }
-
-            override fun onDisconnect(device: UsbDevice, ctrlBlock: USBMonitor.UsbControlBlock) {
-                Log.d("MainActivity", "USB device disconnected: $device")
-                uvcCamera?.stopPreview()
-                uvcCamera?.close()
-                uvcCamera = null
-                Toast.makeText(this@MainActivity, "USB camera disconnected", Toast.LENGTH_SHORT).show()
-            }
-
-            override fun onCancel(device: UsbDevice?) {
-                Toast.makeText(this@MainActivity, "USB permission denied", Toast.LENGTH_SHORT).show()
-            }
-        })
-        usbMonitor.register()
-    }
-
-    private fun navigateToUsbFragment() {
-        // Ensure navigation is done on the main thread
-        Handler(Looper.getMainLooper()).post {
-            findNavController(R.id.nav_host_fragment).navigate(R.id.action_usb_to_camera)
         }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    override fun onStart() {
-        super.onStart()
-        val filter = IntentFilter(ACTION_USB_PERMISSION)
-        registerReceiver(usbPermissionActionReceiver, filter, RECEIVER_NOT_EXPORTED)
-    }
-
-    override fun onStop() {
-        super.onStop()
-        unregisterReceiver(usbPermissionActionReceiver)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        usbMonitor.register()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        usbMonitor.unregister()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            usbMonitor.unregister()
-            uvcCamera?.destroy()
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error during onDestroy: ${e.message}", e)
-        }
-    }
-
-    override fun onBackPressed() {
-        val navController = findNavController(R.id.nav_host_fragment)
-        when (navController.currentDestination?.id) {
-            R.id.camera_fragment -> {
-                // Navigate back to USB Fragment from Camera Fragment
-                navController.navigate(R.id.action_camera_to_usb)
-            }
-            R.id.usb_fragment -> {
-                // Call super to handle exiting the app
-                super.onBackPressed()
-            }
-            else -> super.onBackPressed()
-        }
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        return findNavController(R.id.nav_host_fragment).navigateUp() || super.onSupportNavigateUp()
-    }
-
-    companion object {
-        const val ACTION_USB_PERMISSION = "com.aditya.object.USB_PERMISSION"
     }
 }
 
@@ -1313,301 +2623,17 @@ class MainActivity : AppCompatActivity() {
 
 
 
+package com.ml.shubham0204.facenet_android
 
+import android.app.Application
+import com.ml.shubham0204.facenet_android.data.ObjectBoxStore
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
+class MainApplication : Application() {
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<?xml version="1.0" encoding="utf-8"?>
-<navigation
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/nav_graph"
-    app:startDestination="@id/usb_fragment"> <!-- Changed startDestination -->
-
-    <fragment
-        android:id="@+id/permissions_fragment"
-        android:name="com.aditya.object.fragment.PermissionFragment"
-        android:label="PermissionsFragment" >
-        <action
-            android:id="@+id/action_permissions_to_camera"
-            app:destination="@id/camera_fragment"
-            app:popUpTo="@id/permissions_fragment"
-            app:popUpToInclusive="true" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/camera_fragment"
-        android:name="com.aditya.object.fragment.CameraFragment"
-        android:label="CameraFragment" >
-        <action
-            android:id="@+id/action_camera_to_permissions"
-            app:destination="@id/permissions_fragment"
-            app:popUpTo="@id/camera_fragment"
-            app:popUpToInclusive="true"/>
-        <action
-            android:id="@+id/action_camera_to_usb"
-            app:destination="@id/usb_fragment"
-            app:popUpTo="@id/camera_fragment"
-            app:popUpToInclusive="true"/>
-    </fragment>
-
-    <fragment
-        android:id="@+id/usb_fragment"
-        android:name="com.aditya.object.fragment.UsbFragment"
-        android:label="UsbFragment" >
-        <action
-            android:id="@+id/action_usb_to_camera"
-            app:destination="@id/camera_fragment"
-            app:popUpTo="@id/usb_fragment"
-            app:popUpToInclusive="true"/> <!-- Changed destination to camera_fragment -->
-        <action
-            android:id="@+id/action_usb_to_permissions"
-            app:destination="@id/permissions_fragment"
-            app:popUpTo="@id/usb_fragment"
-            app:popUpToInclusive="true"/>
-    </fragment>
-</navigation>
-
-
-
-
-
-
-
-
-
-
-
-
-Internal Error occurred while analyzing this expression:
-    java.lang.AssertionError: Number of arguments should not be less than number of parameters, but: parameters=6, args=4
-    at org.jetbrains.kotlin.types.IndexedParametersSubstitution.&lt;init&gt;(TypeSubstitution.kt:119)
-    at org.jetbrains.kotlin.types.IndexedParametersSubstitution.&lt;init&gt;(TypeSubstitution.kt:113)
-   at org.jetbrains.kotlin.types.IndexedParametersSubstitution.&lt;init&gt;(TypeSubstitution.kt:127)
-    at org.jetbrains.kotlin.types.TypeConstructorSubstitution$Companion.create(TypeSubstitution.kt:99)
-    at org.jetbrains.kotlin.types.KotlinTypeFactory.computeMemberScope(KotlinTypeFactory.kt:57)
-    at org.jetbrains.kotlin.types.KotlinTypeFactory.simpleType(KotlinTypeFactory.kt:90)
-    at org.jetbrains.kotlin.types.KotlinTypeFactory.simpleType$default(KotlinTypeFactory.kt:77)
-    at org.jetbrains.kotlin.serialization.deserialization.TypeDeserializer.simpleType(TypeDeserializer.kt:126)
-    at org.jetbrains.kotlin.serialization.deserialization.TypeDeserializer.type(TypeDeserializer.kt:68)
-    at org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedClassDescriptor$DeserializedClassTypeConstructor.computeSupertypes(DeserializedClassDescriptor.kt:242)
-    at org.jetbrains.kotlin.types.AbstractTypeConstructor$supertypes$1.invoke(AbstractTypeConstructor.kt:78)
-    at org.jetbrains.kotlin.types.AbstractTypeConstructor$supertypes$1.invoke(AbstractTypeConstructor.kt:77)
-    at org.jetbrains.kotlin.storage.LockBasedStorageManager$LockBasedLazyValue.invoke(LockBasedStorageManager.java:408)
-    at org.jetbrains.kotlin.storage.LockBasedStorageManager$LockBasedLazyValueWithPostCompute.invoke(LockBasedStorageManager.java:481)
-    at org.jetbrains.kotlin.storage.LockBasedStorageManager$LockBasedNotNullLazyValueWithPostCompute.invoke(LockBasedStorageManager.java:512)
-    at org.jetbrains.kotlin.types.AbstractTypeConstructor.getSupertypes(AbstractTypeConstructor.kt:27)
-    at org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedClassDescriptor$DeserializedClassMemberScope.getNonDeclaredFunctionNames(DeserializedClassDes...
-
-
-
-plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.jetbrains.kotlin.android)
-    id ("kotlin-kapt")
-    id ("kotlin-android")
-    id ("androidx.navigation.safeargs") version "2.7.7"
-    id("de.undercouch.download") version "5.6.0"
-}
-
-apply(plugin= "androidx.navigation.safeargs")
-
-android {
-    namespace = "com.aditya.object"
-    compileSdk = 35
-
-    defaultConfig {
-        applicationId = "com.aditya.object"
-        minSdk = 24
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-
-    buildFeatures {
-        viewBinding = true
-        dataBinding = true
-    }
-//    androidResources {
-//        noCompress = 'tflite'
-//    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = "1.8"
+    override fun onCreate() {
+        super.onCreate()
+        ObjectBoxStore.init(this)
     }
 }
-
-dependencies {
-
-
-
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.activity)
-    implementation(libs.androidx.constraintlayout)
-    implementation(project(":libuvc"))
-    implementation(project(":libausbc"))
-    implementation(libs.androidx.room.common)
-    implementation(libs.androidx.room.ktx)
-
-    annotationProcessor ("androidx.room:room-compiler:2.6.1")
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    kapt ("androidx.room:room-compiler:2.6.1")
-
-    implementation(libs.firebase.crashlytics.buildtools)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-
-//    implementation (project(":libausbc"))
-    implementation(project(":libuvc"))
-//    implementation(project(":libausbc"))
-//
-//    implementation ("org.jitsi.react:jitsi-meet-sdk:3.10.2")
-    implementation("androidx.databinding:databinding-runtime:8.5.2")
-
-    implementation ("com.afollestad.material-dialogs:core:3.3.0")
-
-    // App compat and UI things
-    implementation ("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-    implementation ("com.google.android.material:material:1.13.0-alpha05")
-    implementation ("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
-    // Navigation library
-    implementation ("androidx.navigation:navigation-fragment-ktx:2.7.7")
-    implementation ("androidx.navigation:navigation-ui-ktx:2.7.7")
-    // CameraX core library
-    implementation ("androidx.camera:camera-core:1.4.0-rc01")
-    // CameraX Camera2 extensions
-    implementation ("androidx.camera:camera-camera2:1.4.0-rc01")
-    // CameraX Lifecycle library
-    implementation ("androidx.camera:camera-lifecycle:1.4.0-rc01")
-    // CameraX View class
-    implementation ("androidx.camera:camera-view:1.4.0-rc01")
-    //WindowManager
-    implementation ("androidx.window:window:1.3.0")
-    implementation ("org.tensorflow:tensorflow-lite-task-vision:0.4.4")
-    // Import the GPU delegate plugin Library for GPU inference
-    implementation ("org.tensorflow:tensorflow-lite-gpu-delegate-plugin:0.4.4")
-    implementation ("org.tensorflow:tensorflow-lite-gpu:2.16.1")
-
-    implementation ("org.tensorflow:tensorflow-lite:2.16.1")
-    implementation ("com.google.mlkit:text-recognition:16.0.1")
-//    implementation ("com.google.mlkit:vision:19.0.2")
-    implementation("com.google.mlkit:vision-common:17.3.0")
-
-    implementation("androidx.camera:camera-mlkit-vision:1.4.0-rc01")
-    // If you want to additionally use the CameraX Extensions library
-    implementation("androidx.camera:camera-extensions:1.4.0-rc01")
-    implementation("com.google.mlkit:text-recognition:16.0.1")
-
-    implementation ("com.google.code.gson:gson:2.11.0")
-
-    implementation ("com.google.android.gms:play-services-vision:20.1.3")
-
-    implementation ("com.google.android.gms:play-services-maps:19.0.0")
-    implementation ("com.google.android.gms:play-services-location:21.3.0")
-
-    // Face features
-    implementation ("com.google.mlkit:face-detection:16.1.7")
-
-
-    // Or comment the dependency above and uncomment the dependency below to
-    // use unbundled model that depends on Google Play Services
-    implementation ("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
-
-}
-
-project.ext["ASSET_DIR"] = "$projectDir/src/main/assets/"
-project.ext["TEST_ASSET_DIR"] = "$projectDir/src/androidTest/assets/"
-apply(from = "download_tasks.gradle")
-
-
- implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.activity)
-    implementation(libs.androidx.constraintlayout)
-    implementation(project(":libuvc"))
-    implementation(project(":libausbc"))
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-
-
-//    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf( "*.aar"))))
-
-
-    // Required for Ola-MapsSdk
-    implementation("com.moengage:moe-android-sdk:13.04.00")
-    implementation("org.maplibre.gl:android-sdk:11.1.0")
-    implementation("org.maplibre.gl:android-sdk-directions-models:5.9.0")
-    implementation("org.maplibre.gl:android-sdk-services:5.9.0")
-    implementation("org.maplibre.gl:android-sdk-turf:6.0.1")
-    implementation("org.maplibre.gl:android-plugin-markerview-v9:3.0.0")
-    implementation("org.maplibre.gl:android-plugin-annotation-v9:3.0.0")
-
-    implementation("androidx.databinding:databinding-runtime:8.5.2")
-    implementation("com.afollestad.material-dialogs:core:3.3.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-    implementation("com.google.android.material:material:1.13.0-alpha05")
-    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
-    implementation("androidx.camera:camera-core:1.4.0-rc01")
-    implementation("androidx.camera:camera-camera2:1.4.0-rc01")
-    implementation("androidx.camera:camera-lifecycle:1.4.0-rc01")
-    implementation("androidx.camera:camera-view:1.4.0-rc01")
-    implementation("androidx.window:window:1.3.0")
-    implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.4")
-    implementation("org.tensorflow:tensorflow-lite-gpu-delegate-plugin:0.4.4")
-    implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
-    implementation("com.google.mlkit:text-recognition:16.0.1")
-    implementation("com.google.mlkit:vision-common:17.3.0")
-    implementation("androidx.camera:camera-mlkit-vision:1.4.0-rc01")
-    implementation("androidx.camera:camera-extensions:1.4.0-rc01")
-    implementation("com.google.code.gson:gson:2.11.0")
-    implementation("com.google.android.gms:play-services-vision:20.1.3")
-    implementation("com.google.android.gms:play-services-maps:19.0.0")
-    implementation("com.google.android.gms:play-services-location:21.3.0")
